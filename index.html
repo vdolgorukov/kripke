@@ -49,12 +49,13 @@ main{max-width:1120px;margin:0 auto;padding:2.25rem 1.5rem 3rem}
 h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:700;margin:0 0 .45rem;letter-spacing:-.005em}
 .lead{margin:0;color:var(--muted);max-width:64ch}
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
-.lang{display:inline-flex;flex-shrink:0;margin-top:.3rem;border:1.5px solid var(--rule-strong);border-radius:6px;overflow:hidden}
-.lang button{font:inherit;font-size:.85rem;letter-spacing:.04em;min-width:44px;min-height:36px;padding:0 .6rem;border:0;background:transparent;color:var(--muted);cursor:pointer}
-.lang button + button{border-left:1.5px solid var(--rule-strong)}
-.lang button:hover{color:var(--accent)}
-.lang button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.seg{display:inline-flex;flex-shrink:0;border:1.5px solid var(--rule-strong);border-radius:6px;overflow:hidden}
+.lang{margin-top:.3rem}
+.seg button{font:inherit;font-size:.85rem;letter-spacing:.04em;min-width:44px;min-height:36px;padding:0 .6rem;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg button + button{border-left:1.5px solid var(--rule-strong)}
+.seg button:hover{color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
 
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin:1.4rem 0 2rem;padding-bottom:1.25rem;border-bottom:1px solid var(--rule)}
 .variant{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
@@ -67,6 +68,9 @@ h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:70
 .msg{color:var(--err);font-size:.9rem;flex-basis:100%}
 .msg:empty{display:none}
 .spacer{flex:1}
+.level{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.level-label{color:var(--muted)}
+.level .seg button{letter-spacing:0;font-size:.92rem;padding:0 .75rem}
 
 .btn{
   font:inherit;font-size:.97rem;min-height:40px;padding:.4rem 1rem;border-radius:6px;cursor:pointer;
@@ -199,7 +203,7 @@ window.MathJax = {
       <h1 data-i18n="title">Truth of Formulas in a Kripke Model</h1>
       <p class="lead" data-i18n="lead"></p>
     </div>
-    <div class="lang" role="group" aria-label="Language">
+    <div class="lang seg" role="group" aria-label="Language">
       <button type="button" data-lang="en" lang="en" aria-label="English">EN</button><button type="button" data-lang="ru" lang="ru" aria-label="Русский">RU</button>
     </div>
   </header>
@@ -210,6 +214,12 @@ window.MathJax = {
       <input id="variant" type="text" inputmode="numeric" autocomplete="off" maxlength="5">
       <button class="btn" id="open" type="button" data-i18n="open"></button>
       <span class="msg" id="variant-msg" role="alert"></span>
+    </div>
+    <div class="level">
+      <span class="level-label" id="level-label" data-i18n="level"></span>
+      <div class="seg" role="group" aria-labelledby="level-label">
+        <button type="button" data-level="easy" data-i18n="easy"></button><button type="button" data-level="medium" data-i18n="medium"></button><button type="button" data-level="hard" data-i18n="hard"></button>
+      </div>
     </div>
     <span class="spacer"></span>
     <button class="btn" id="new" type="button" data-i18n="newTask"></button>
@@ -289,16 +299,71 @@ window.MathJax = {
     succ: [14, 2, 0, 4]
   };
 
-  function genModel(rng) {
-    var n = rng() < 0.5 ? 4 : 5;
+  // Уровни сложности. Параметры «medium» совпадают с исходным генератором,
+  // поэтому прежние номера вариантов дают те же задания.
+  var LEVELS = {
+    easy: {
+      worlds: function (rng) { return rng() < 0.5 ? 3 : 4; },
+      pEdge: { 3: 0.42, 4: 0.34 }, maxEdges: function (n) { return 2 * n - 1; }, maxBidir: 1,
+      count: function () { return 4; },
+      slots: function (rng) {
+        var s = ['S1', 'S1', 'S1', 'S3'];
+        if (rng() < 0.35) s[1] = 'S4e';
+        return s;
+      },
+      alt: ['S1', 'S3'], maxSize: 5, emptyChance: 0.3, needDepth: 1
+    },
+    medium: {
+      worlds: function (rng) { return rng() < 0.5 ? 4 : 5; },
+      pEdge: { 4: 0.34, 5: 0.28 }, maxEdges: function (n) { return 2 * n - 1; }, maxBidir: 1,
+      count: function (rng) { return rng() < 0.5 ? 5 : 6; },
+      slots: function (rng, k) {
+        var s = ['S1', 'S1', 'S2', 'S3', 'S5'];
+        if (rng() < 0.35) s[1] = 'S4';
+        if (k === 6) s.push(rng() < 0.5 ? 'S3' : 'S2');
+        return s;
+      },
+      alt: ['S1', 'S3', 'S2', 'S5'], maxSize: 9, emptyChance: 0.5, needDepth: 0
+    },
+    hard: {
+      worlds: function () { return 5; },
+      atoms: function (rng) { return rng() < 0.5 ? ['p', 'q', 'r'] : ['p', 'q', 'r', 's']; },
+      pEdge: { 5: 0.33 }, maxEdges: function (n) { return 2 * n + 1; }, maxBidir: 2,
+      count: function (rng) { return rng() < 0.5 ? 6 : 7; },
+      slots: function (rng, k) {
+        var s = ['S3', 'S5', 'S6', 'S9', 'S7', 'S8'];
+        if (k === 7) s.push(rng() < 0.5 ? 'S7' : 'S6');
+        return s;
+      },
+      alt: ['S7', 'S6', 'S5', 'S9', 'S3', 'S2'], maxSize: 14, emptyChance: 0.5, needDepth: 4, allAtoms: true
+    }
+  };
+
+  // вероятность истинности переменной в мире
+  var ATOM_P = { p: 0.5, q: 0.45, r: 0.45, s: 0.4 };
+
+  function genModel(rng, level) {
+    var cfg = LEVELS[level || 'medium'];
+    var n = cfg.worlds(rng);
     var wantDeadEnd = rng() < 0.75;
+    var names = cfg.atoms ? cfg.atoms(rng) : ['p', 'q'];
+    var tooFlat = function (val) {
+      // каждая переменная где-то истинна и где-то ложна
+      return names.some(function (a) {
+        var c = 0;
+        for (var w = 0; w < n; w++) if (val[w][a]) c++;
+        return c === 0 || c === n;
+      });
+    };
     for (var tries = 0; tries < 20000; tries++) {
       var val = [], i, j;
-      for (i = 0; i < n; i++) val.push({ p: rng() < 0.5, q: rng() < 0.45 });
-      var pc = 0, qc = 0;
-      for (i = 0; i < n; i++) { if (val[i].p) pc++; if (val[i].q) qc++; }
-      if (pc === 0 || pc === n || qc === 0 || qc === n) continue;
-      var succ = [], pEdge = n === 4 ? 0.34 : 0.28;
+      for (i = 0; i < n; i++) {
+        var v0 = {};
+        names.forEach(function (a) { v0[a] = rng() < ATOM_P[a]; });
+        val.push(v0);
+      }
+      if (tooFlat(val)) continue;
+      var succ = [], pEdge = cfg.pEdge[n];
       for (i = 0; i < n; i++) {
         succ.push(0);
         for (j = 0; j < n; j++) {
@@ -315,17 +380,22 @@ window.MathJax = {
         if (succ[i] === 0) dead++;
         for (j = i + 1; j < n; j++) if ((succ[i] >> j & 1) && (succ[j] >> i & 1)) bidir++;
       }
-      if (edges < n || edges > 2 * n - 1) continue;
-      if (maxOut > 3 || loops > 2 || bidir > 1 || branching < 1 || dead > 2) continue;
+      if (edges < n || edges > cfg.maxEdges(n)) continue;
+      if (maxOut > 3 || loops > 2 || bidir > cfg.maxBidir || branching < 1 || dead > 2) continue;
       if (wantDeadEnd ? dead < 1 : dead > 0) continue;
       if (!weaklyConnected(n, succ)) continue;
-      return { n: n, val: val, succ: succ };
+      return names.length === 2 ? { n: n, val: val, succ: succ } : { n: n, val: val, succ: succ, atoms: names };
     }
     return PICTURE_MODEL;
   }
+  function atomsOf(m) { return m.atoms || ['p', 'q']; }
 
   // Шаблоны расположения миров (выпуклые, чтобы стрелки не проходили через вершины)
   var LAYOUTS = {
+    3: [
+      [[140, 380], [460, 380], [300, 110]],
+      [[140, 130], [460, 130], [300, 400]]
+    ],
     4: [
       [[130, 250], [320, 80], [470, 250], [320, 420]],
       [[150, 110], [450, 110], [450, 390], [150, 390]]
@@ -342,13 +412,14 @@ window.MathJax = {
   }
 
   // ----- формулы -----
-  var P = { t: 'p' }, Q = { t: 'q' }, BOT = { t: 'bot' }, TOP = { t: 'top' };
+  var AT = { p: { t: 'p' }, q: { t: 'q' }, r: { t: 'r' }, s: { t: 's' } };
+  var P = AT.p, Q = AT.q, BOT = { t: 'bot' }, TOP = { t: 'top' };
   function mk(t, a, b) { return { t: t, a: a, b: b }; }
   var BIN = { and: 1, or: 1, imp: 1 };
 
   function key(f) {
     switch (f.t) {
-      case 'p': case 'q': case 'bot': case 'top': return f.t;
+      case 'p': case 'q': case 'r': case 's': case 'bot': case 'top': return f.t;
       case 'not': return '~' + key(f.a);
       case 'box': return 'B' + key(f.a);
       case 'dia': return 'D' + key(f.a);
@@ -362,7 +433,7 @@ window.MathJax = {
   }
   function wellFormed(f) {
     switch (f.t) {
-      case 'p': case 'q': case 'bot': case 'top': return true;
+      case 'p': case 'q': case 'r': case 's': case 'bot': case 'top': return true;
       case 'not': return f.a.t !== 'not' && f.a.t !== 'bot' && f.a.t !== 'top' && wellFormed(f.a);
       case 'box': case 'dia': return wellFormed(f.a);
       default:
@@ -380,6 +451,8 @@ window.MathJax = {
     switch (f.t) {
       case 'p': return atomMask(m, 'p');
       case 'q': return atomMask(m, 'q');
+      case 'r': return atomMask(m, 'r');
+      case 's': return atomMask(m, 's');
       case 'bot': return 0;
       case 'top': return full;
       case 'not': return full & ~evalF(f.a, m);
@@ -398,10 +471,21 @@ window.MathJax = {
     throw new Error('unknown node ' + f.t);
   }
 
-  function makeGen(rng) {
+  function makeGen(rng, names) {
+    names = names || ['p', 'q'];
+    var pool = names.map(function (a) { return AT[a]; });
     function pick(a) { return a[Math.floor(rng() * a.length)]; }
-    function atom() { return rng() < 0.5 ? P : Q; }
-    function other(a) { return a === P ? Q : P; }
+    function atom() { return pool.length === 2 ? (rng() < 0.5 ? P : Q) : pick(pool); }
+    function other(a) {
+      if (pool.length === 2) return a === P ? Q : P;
+      return pick(pool.filter(function (x) { return x !== a; }));
+    }
+    function distinct(k) {
+      var rest = pool.slice(), out = [];
+      while (out.length < k) out.push(rest.splice(Math.floor(rng() * rest.length), 1)[0]);
+      return out;
+    }
+    function chain(d, inner) { for (var i = 0; i < d; i++) inner = mk(M(), inner); return inner; }
     function lit() { var a = atom(); return rng() < 0.25 ? mk('not', a) : a; }
     function binop() { var r = rng(); return r < 0.36 ? 'and' : r < 0.64 ? 'or' : 'imp'; }
     function M() { return rng() < 0.5 ? 'box' : 'dia'; }
@@ -435,13 +519,54 @@ window.MathJax = {
       S4: function () {
         return pick([mk('box', BOT), mk('dia', TOP), mk('dia', mk('box', BOT)), mk('box', mk('dia', TOP))]);
       },
+      // то же, только глубины 1 (для лёгкого уровня)
+      S4e: function () { return pick([mk('box', BOT), mk('dia', TOP)]); },
       // модальность над булевой комбинацией с модальностью внутри
       S5: function () {
         var a = atom(), b = other(a);
         if (rng() < 0.5) return mk(M(), mk(binop(), rng() < 0.5 ? a : mk('not', a), mk(M(), b)));
         return mk(M(), mk(binop(), mk(M(), a), rng() < 0.5 ? b : mk('not', b)));
+      },
+      // глубина 3
+      S6: function () {
+        var r = rng(), a = atom(), b = other(a);
+        if (r < 0.35) return mk(M(), mk(M(), mk(M(), lit())));
+        if (r < 0.7) return mk(M(), mk(binop(), mk(M(), a), mk(M(), rng() < 0.5 ? b : mk('not', b))));
+        return mk(binop(), mk(M(), mk(M(), a)), mk(M(), mk('not', mk(M(), b))));
+      },
+      // глубина 4
+      S7: function () {
+        var r = rng(), a = atom(), b = other(a);
+        if (r < 0.3) return chain(4, lit());
+        if (r < 0.65) return mk(M(), mk(M(), mk(binop(), mk(M(), a), chain(2, b))));
+        return mk(binop(), chain(2, a), mk(M(), mk('not', chain(3, b))));
+      },
+      // глубина 5
+      S8: function () {
+        var r = rng(), a = atom(), b = other(a);
+        if (r < 0.4) return chain(5, lit());
+        if (r < 0.7) return mk(M(), mk(M(), mk(binop(), mk(M(), a), chain(3, b))));
+        return mk(M(), mk('not', chain(4, a)));
+      },
+      // три-четыре переменные в одной формуле
+      S9: function () {
+        var d = distinct(Math.min(4, pool.length));
+        return mk(M(), mk('imp', mk('and', d[0], d[1]), chain(2, mk('or', d[2], d[3] || d[0]))));
       }
     };
+  }
+
+  function modalDepth(f) {
+    if (f.t === 'box' || f.t === 'dia') return 1 + modalDepth(f.a);
+    if (f.t in BIN) return Math.max(modalDepth(f.a), modalDepth(f.b));
+    return f.a ? modalDepth(f.a) : 0;
+  }
+
+  function atomsIn(f, acc) {
+    if (AT[f.t]) acc[f.t] = true;
+    else if (f.t in BIN) { atomsIn(f.a, acc); atomsIn(f.b, acc); }
+    else if (f.a) atomsIn(f.a, acc);
+    return acc;
   }
 
   function hasOp(f, t) {
@@ -450,22 +575,21 @@ window.MathJax = {
     return f.a ? hasOp(f.a, t) : false;
   }
 
-  function genFormulas(m, rng) {
-    var G = makeGen(rng);
-    var k = rng() < 0.5 ? 5 : 6;
+  function genFormulas(m, rng, level) {
+    var cfg = LEVELS[level || 'medium'];
+    var G = makeGen(rng, atomsOf(m));
+    var k = cfg.count(rng);
     var full = (1 << m.n) - 1;
     var best = null;
     for (var attempt = 0; attempt < 30; attempt++) {
-      var slots = ['S1', 'S1', 'S2', 'S3', 'S5'];
-      if (rng() < 0.35) slots[1] = 'S4';
-      if (k === 6) slots.push(rng() < 0.5 ? 'S3' : 'S2');
-      // примерно в половине вариантов одна формула ложна во всех мирах
-      var emptySlot = rng() < 0.5 ? Math.floor(rng() * slots.length) : -1;
+      var slots = cfg.slots(rng, k);
+      // в части вариантов одна формула ложна во всех мирах
+      var emptySlot = rng() < cfg.emptyChance ? Math.floor(rng() * slots.length) : -1;
       var out = [], keys = {}, setCount = {};
       var tryPick = function (gen, tries, mode) {
         for (var t = 0; t < tries; t++) {
           var f = gen();
-          if (!wellFormed(f) || size(f) > 9) continue;
+          if (!wellFormed(f) || size(f) > cfg.maxSize) continue;
           var kf = key(f);
           if (keys[kf]) continue;
           var v = evalF(f, m);
@@ -477,7 +601,7 @@ window.MathJax = {
         return null;
       };
       for (var s = 0; s < slots.length; s++) {
-        var alt = ['S1', 'S3', 'S2', 'S5'], a, c = null;
+        var alt = cfg.alt, a, c = null;
         if (s === emptySlot) {
           c = tryPick(G[slots[s]], 300, 'empty');
           for (a = 0; a < alt.length && !c; a++) c = tryPick(G[alt[a]], 200, 'empty');
@@ -492,7 +616,16 @@ window.MathJax = {
       }
       var good = out.length === k &&
         out.some(function (f) { return hasOp(f, 'box'); }) &&
-        out.some(function (f) { return hasOp(f, 'dia'); });
+        out.some(function (f) { return hasOp(f, 'dia'); }) &&
+        // лёгкий: только глубина 1; сложный: хотя бы одна формула глубины 3
+        (cfg.needDepth === 1 ? out.every(function (f) { return modalDepth(f) === 1; }) :
+          cfg.needDepth ? out.some(function (f) { return modalDepth(f) >= cfg.needDepth; }) : true) &&
+        // сложный: каждая переменная модели встречается в задании
+        (!cfg.allAtoms || (function () {
+          var used = {};
+          out.forEach(function (f) { atomsIn(f, used); });
+          return atomsOf(m).every(function (a) { return used[a]; });
+        })());
       if (good) return out;
       if (!best || out.length > best.length) best = out;
     }
@@ -503,8 +636,7 @@ window.MathJax = {
   var OPS = { and: ['\\wedge', '∧'], or: ['\\vee', '∨'], imp: ['\\to', '→'] };
   function toTex(f, nested) {
     switch (f.t) {
-      case 'p': return 'p';
-      case 'q': return 'q';
+      case 'p': case 'q': case 'r': case 's': return f.t;
       case 'bot': return '\\bot';
       case 'top': return '\\top';
       case 'not': return '\\neg ' + toTex(f.a, true);
@@ -517,8 +649,7 @@ window.MathJax = {
   }
   function toTxt(f, nested) {
     switch (f.t) {
-      case 'p': return 'p';
-      case 'q': return 'q';
+      case 'p': case 'q': case 'r': case 's': return f.t;
       case 'bot': return '⊥';
       case 'top': return '⊤';
       case 'not': return '¬' + toTxt(f.a, true);
@@ -544,8 +675,8 @@ window.MathJax = {
 
   var API = {
     mulberry32: mulberry32, genModel: genModel, genLayout: genLayout, genFormulas: genFormulas,
-    evalF: evalF, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
-    LAYOUTS: LAYOUTS, PICTURE_MODEL: PICTURE_MODEL
+    evalF: evalF, atomsOf: atomsOf, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
+    LAYOUTS: LAYOUTS, LEVELS: LEVELS, PICTURE_MODEL: PICTURE_MODEL
   };
   if (typeof document === 'undefined') {
     if (typeof module !== 'undefined') module.exports = API;
@@ -559,6 +690,7 @@ window.MathJax = {
       title: 'Truth of Formulas in a Kripke Model',
       lead: 'For each formula, mark the worlds where it is true (or \u201cnone\u201d). Check a formula with the \u201cCheck\u201d button below it, or check all of them at once. After checking, open the breakdown to see the sets of worlds where the subformulas are true.',
       variant: 'Variant', open: 'Open', newTask: 'New task',
+      level: 'Difficulty', easy: 'Easy', medium: 'Medium', hard: 'Hard',
       secModel: 'Model', secTask: 'Task', sets: 'Model as sets',
       checkAll: 'Check all', reset: 'Clear marks',
       lgHit: 'correct mark', lgExtra: 'extra mark: the formula is false here', lgMiss: 'missed: the formula is true here',
@@ -584,6 +716,7 @@ window.MathJax = {
       title: 'Истинность формул в модели Крипке',
       lead: 'Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и проверьте её кнопкой «Проверить» под формулой или все формулы сразу. После проверки можно открыть разбор: множества миров, где истинны подформулы.',
       variant: 'Вариант', open: 'Открыть', newTask: 'Новое задание',
+      level: 'Сложность', easy: 'Лёгкое', medium: 'Среднее', hard: 'Сложное',
       secModel: 'Модель', secTask: 'Задание', sets: 'Модель в виде множеств',
       checkAll: 'Проверить все', reset: 'Сбросить отметки',
       lgHit: 'верная отметка', lgExtra: 'лишняя отметка: формула здесь ложна', lgMiss: 'пропущено: формула здесь истинна',
@@ -607,6 +740,7 @@ window.MathJax = {
     }
   };
   var lang = 'en';
+  var level = 'medium';
   function T(k) {
     var v = I18N[lang][k];
     return typeof v === 'function' ? v.apply(null, Array.prototype.slice.call(arguments, 1)) : v;
@@ -620,6 +754,18 @@ window.MathJax = {
     } catch (e) { /* хранилище недоступно */ }
     return 'en';
   }
+  function initialLevel() {
+    var h = location.hash || '';
+    var mm = /d=(easy|medium|hard)/.exec(h);
+    if (mm) return mm[1];
+    // ссылка на вариант без уровня означает средний уровень
+    if (/v=\d/.test(h)) return 'medium';
+    try {
+      var l = localStorage.getItem('kripke-level');
+      if (l === 'easy' || l === 'medium' || l === 'hard') return l;
+    } catch (e) { /* хранилище недоступно */ }
+    return 'medium';
+  }
   // статичные тексты страницы
   function applyStatic() {
     document.documentElement.lang = lang;
@@ -628,6 +774,9 @@ window.MathJax = {
     Array.prototype.forEach.call(document.querySelectorAll('[data-i18n-aria]'), function (el) { el.setAttribute('aria-label', T(el.getAttribute('data-i18n-aria'))); });
     Array.prototype.forEach.call(document.querySelectorAll('.lang button'), function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-lang') === lang ? 'true' : 'false');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-level]'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-level') === level ? 'true' : 'false');
     });
   }
 
@@ -643,7 +792,7 @@ window.MathJax = {
   }
   function fx(v) { return (Math.round(v * 10) / 10).toString(); }
   function htmlEsc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function italicLetters(s) { return htmlEsc(s).replace(/\b([pqwWRVv])\b/g, '<i>$1</i>'); }
+  function italicLetters(s) { return htmlEsc(s).replace(/\b([pqrswWRVv])\b/g, '<i>$1</i>'); }
 
   function worldTex(i) { return 'w_{' + (i + 1) + '}'; }
   function worldTxt(i) { return 'w' + (i + 1); }
@@ -821,10 +970,15 @@ window.MathJax = {
     for (i = 0; i < n; i++) {
       gN.appendChild(svgEl('circle', { cx: pos[i].x, cy: pos[i].y, r: R, 'class': 'world' }));
       ext.push({ x: pos[i].x - R, y: pos[i].y - R }, { x: pos[i].x + R, y: pos[i].y + R });
-      var atoms = [];
-      if (m.val[i].p) atoms.push('p');
-      if (m.val[i].q) atoms.push('q');
-      if (atoms.length) {
+      var atoms = atomsOf(m).filter(function (a) { return m.val[i][a]; });
+      if (atoms.length > 2) {
+        // три-четыре переменные: в две строки
+        var l1 = atoms.slice(0, 2).join(', ') + ',', l2 = atoms.slice(2).join(', ');
+        var lb1 = svgLabel(l1, l1, null, 18), lb2 = svgLabel(l2, l2, null, 18);
+        lb1.place(pos[i].x, pos[i].y - 10);
+        lb2.place(pos[i].x, pos[i].y + 11);
+        gL.appendChild(lb1.el); gL.appendChild(lb2.el);
+      } else if (atoms.length) {
         var lab = svgLabel(atoms.join(', '), atoms.join(', '), null, 21);
         lab.place(pos[i].x, pos[i].y);
         gL.appendChild(lab.el);
@@ -860,7 +1014,7 @@ window.MathJax = {
     var parts = [];
     for (i = 0; i < n; i++) {
       var at = [];
-      if (m.val[i].p) at.push('p'); if (m.val[i].q) at.push('q');
+      atomsOf(m).forEach(function (a) { if (m.val[i][a]) at.push(a); });
       var sc3 = bitsOf(m.succ[i], n).map(worldTxt);
       parts.push(worldTxt(i) + ': ' + (at.length ? T('ariaTrue') + at.join(', ') : T('ariaAtomsFalse')) + T('ariaSucc') + (sc3.length ? sc3.join(', ') : T('ariaNone')));
     }
@@ -900,7 +1054,7 @@ window.MathJax = {
     }
     ul.appendChild(liR);
 
-    ['p', 'q'].forEach(function (a) {
+    atomsOf(m).forEach(function (a) {
       var mask = atomMask(m, a);
       var li = document.createElement('li');
       li.appendChild(mathSpan('V(' + a + ') = ' + setTex(mask, n),
@@ -1115,7 +1269,7 @@ window.MathJax = {
 
   function persist(seed) {
     try { localStorage.setItem('kripke-variant', String(seed)); } catch (e) { /* хранилище недоступно */ }
-    try { history.replaceState(null, '', '#v=' + seed + (lang === 'en' ? '' : '&lang=' + lang)); } catch (e) { /* адрес не меняется */ }
+    try { history.replaceState(null, '', '#v=' + seed + (level === 'medium' ? '' : '&d=' + level) + (lang === 'en' ? '' : '&lang=' + lang)); } catch (e) { /* адрес не меняется */ }
   }
   function randomSeed(except) {
     var s;
@@ -1135,9 +1289,9 @@ window.MathJax = {
   function load(seed) {
     var rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
     state.seed = seed;
-    state.model = genModel(rng);
+    state.model = genModel(rng, level);
     state.layout = genLayout(state.model.n, rng);
-    state.formulas = genFormulas(state.model, rng);
+    state.formulas = genFormulas(state.model, rng, level);
     state.truth = state.formulas.map(function (f) { return evalF(f, state.model); });
     state.marks = state.formulas.map(function () { var a = []; for (var i = 0; i <= state.model.n; i++) a.push(false); return a; });
     state.open = state.formulas.map(function () { return false; });
@@ -1191,7 +1345,20 @@ window.MathJax = {
     b.addEventListener('click', function () { setLang(b.getAttribute('data-lang')); });
   });
 
+  // смена уровня: тот же номер варианта, но задание другого уровня
+  function setLevel(l) {
+    if (l === level) return;
+    level = l;
+    try { localStorage.setItem('kripke-level', l); } catch (e) { /* хранилище недоступно */ }
+    applyStatic();
+    load(state.seed);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-level]'), function (b) {
+    b.addEventListener('click', function () { setLevel(b.getAttribute('data-level')); });
+  });
+
   lang = initialLang();
+  level = initialLevel();
   applyStatic();
   load(initialSeed());
 })();
