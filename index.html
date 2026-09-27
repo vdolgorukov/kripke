@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Истинность формул в модели Крипке</title>
+<title>Truth of Formulas in a Kripke Model</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap">
@@ -48,6 +48,13 @@ body{
 main{max-width:1120px;margin:0 auto;padding:2.25rem 1.5rem 3rem}
 h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:700;margin:0 0 .45rem;letter-spacing:-.005em}
 .lead{margin:0;color:var(--muted);max-width:64ch}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.lang{display:inline-flex;flex-shrink:0;margin-top:.3rem;border:1.5px solid var(--rule-strong);border-radius:6px;overflow:hidden}
+.lang button{font:inherit;font-size:.85rem;letter-spacing:.04em;min-width:44px;min-height:36px;padding:0 .6rem;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.lang button + button{border-left:1.5px solid var(--rule-strong)}
+.lang button:hover{color:var(--accent)}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
 
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin:1.4rem 0 2rem;padding-bottom:1.25rem;border-bottom:1px solid var(--rule)}
 .variant{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
@@ -187,35 +194,40 @@ window.MathJax = {
 </head>
 <body>
 <main>
-  <header>
-    <h1>Истинность формул в модели Крипке</h1>
-    <p class="lead">Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и проверьте её кнопкой «Проверить» под формулой или все формулы сразу. После проверки можно открыть разбор: множества миров, где истинны подформулы.</p>
+  <header class="top">
+    <div>
+      <h1 data-i18n="title">Truth of Formulas in a Kripke Model</h1>
+      <p class="lead" data-i18n="lead"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" lang="en" aria-label="English">EN</button><button type="button" data-lang="ru" lang="ru" aria-label="Русский">RU</button>
+    </div>
   </header>
 
   <div class="toolbar">
     <div class="variant">
-      <label for="variant">Вариант</label>
+      <label for="variant" data-i18n="variant"></label>
       <input id="variant" type="text" inputmode="numeric" autocomplete="off" maxlength="5">
-      <button class="btn" id="open" type="button">Открыть</button>
+      <button class="btn" id="open" type="button" data-i18n="open"></button>
       <span class="msg" id="variant-msg" role="alert"></span>
     </div>
     <span class="spacer"></span>
-    <button class="btn" id="new" type="button">Новое задание</button>
+    <button class="btn" id="new" type="button" data-i18n="newTask"></button>
   </div>
 
   <div class="workspace">
-    <section aria-label="Модель">
+    <section data-i18n-aria="secModel">
       <figure>
         <svg id="kripke" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
         <figcaption id="caption"></figcaption>
       </figure>
       <details>
-        <summary>Модель в виде множеств</summary>
+        <summary data-i18n="sets"></summary>
         <ul class="setlist" id="sets"></ul>
       </details>
     </section>
 
-    <section aria-label="Задание">
+    <section data-i18n-aria="secTask">
       <div class="table-wrap">
         <table class="grid" id="grid">
           <thead></thead>
@@ -223,19 +235,19 @@ window.MathJax = {
         </table>
       </div>
       <div class="actions">
-        <button class="btn primary" id="check" type="button">Проверить все</button>
-        <button class="btn" id="reset" type="button">Сбросить отметки</button>
+        <button class="btn primary" id="check" type="button" data-i18n="checkAll"></button>
+        <button class="btn" id="reset" type="button" data-i18n="reset"></button>
       </div>
       <p id="summary" aria-live="polite"></p>
       <div class="legend" id="legend" hidden>
-        <span class="lg"><span class="sw sw-hit"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>верная отметка</span>
-        <span class="lg"><span class="sw sw-extra"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></span>лишняя отметка: формула здесь ложна</span>
-        <span class="lg"><span class="sw sw-miss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>пропущено: формула здесь истинна</span>
+        <span class="lg"><span class="sw sw-hit"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="lgHit"></span></span>
+        <span class="lg"><span class="sw sw-extra"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></span><span data-i18n="lgExtra"></span></span>
+        <span class="lg"><span class="sw sw-miss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="lgMiss"></span></span>
       </div>
       <details>
-        <summary>Напоминание о семантике</summary>
+        <summary data-i18n="semHead"></summary>
         <ul class="sem" id="sem"></ul>
-        <p class="note">В мире без последователей любая формула вида □φ истинна, а любая формула вида ◇φ ложна.</p>
+        <p class="note" data-i18n="semNote"></p>
       </details>
     </section>
   </div>
@@ -542,6 +554,83 @@ window.MathJax = {
 
   /* ================= Отрисовка ================= */
 
+  var I18N = {
+    en: {
+      title: 'Truth of Formulas in a Kripke Model',
+      lead: 'For each formula, mark the worlds where it is true (or \u201cnone\u201d). Check a formula with the \u201cCheck\u201d button below it, or check all of them at once. After checking, open the breakdown to see the sets of worlds where the subformulas are true.',
+      variant: 'Variant', open: 'Open', newTask: 'New task',
+      secModel: 'Model', secTask: 'Task', sets: 'Model as sets',
+      checkAll: 'Check all', reset: 'Clear marks',
+      lgHit: 'correct mark', lgExtra: 'extra mark: the formula is false here', lgMiss: 'missed: the formula is true here',
+      semHead: 'Semantics reminder',
+      semNote: 'In a world with no successors, every formula of the form \u25a1\u03c6 is true and every formula of the form \u25c7\u03c6 is false.',
+      ariaModel: 'Kripke model. ', ariaTrue: 'true: ', ariaAtomsFalse: 'all atoms false', ariaSucc: '; transitions: ', ariaNone: 'none',
+      caption: 'Model ',
+      semBox: 'M, w \u22a8 \u25a1\u03c6 if and only if for every w\u2032 with wRw\u2032, M, w\u2032 \u22a8 \u03c6',
+      semDia: 'M, w \u22a8 \u25c7\u03c6 if and only if there is a w\u2032 with wRw\u2032 and M, w\u2032 \u22a8 \u03c6',
+      formula: 'Formula', none: 'none', noneTitle: 'in none of the worlds',
+      check: 'Check', checkAria: function (i) { return 'Check formula ' + i; },
+      cellNone: function (i) { return 'Formula ' + i + ' is true in none of the worlds'; },
+      cellWorld: function (i, w) { return 'Formula ' + i + ' is true in world ' + w; },
+      bdIntro: 'Sets of worlds where the subformulas are true:',
+      noAnswer: 'no answer', correct: 'correct', errors: function (k) { return 'errors: ' + k; },
+      breakdown: 'Breakdown', hideBreakdown: 'Hide breakdown',
+      partial: function (d, a, r) { return 'Formulas checked: ' + d + ' of ' + a + '. Without errors: ' + r + ' of ' + d + '.'; },
+      allOk: 'All marks are correct.',
+      total: function (g, t, r, n) { return 'Correct: ' + g + ' of ' + t + ' cells. Formulas without errors: ' + r + ' of ' + n + '.'; },
+      badVariant: 'Variant number: a whole number from 1 to 99999.'
+    },
+    ru: {
+      title: 'Истинность формул в модели Крипке',
+      lead: 'Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и проверьте её кнопкой «Проверить» под формулой или все формулы сразу. После проверки можно открыть разбор: множества миров, где истинны подформулы.',
+      variant: 'Вариант', open: 'Открыть', newTask: 'Новое задание',
+      secModel: 'Модель', secTask: 'Задание', sets: 'Модель в виде множеств',
+      checkAll: 'Проверить все', reset: 'Сбросить отметки',
+      lgHit: 'верная отметка', lgExtra: 'лишняя отметка: формула здесь ложна', lgMiss: 'пропущено: формула здесь истинна',
+      semHead: 'Напоминание о семантике',
+      semNote: 'В мире без последователей любая формула вида □φ истинна, а любая формула вида ◇φ ложна.',
+      ariaModel: 'Модель Крипке. ', ariaTrue: 'истинны ', ariaAtomsFalse: 'атомы ложны', ariaSucc: '; переходы: ', ariaNone: 'нет',
+      caption: 'Модель ',
+      semBox: 'M, w ⊨ □φ тогда и только тогда, когда для всех w′: если wRw′, то M, w′ ⊨ φ',
+      semDia: 'M, w ⊨ ◇φ тогда и только тогда, когда существует w′ такой, что wRw′ и M, w′ ⊨ φ',
+      formula: 'Формула', none: 'ни в одном', noneTitle: 'ни в одном из миров',
+      check: 'Проверить', checkAria: function (i) { return 'Проверить формулу ' + i; },
+      cellNone: function (i) { return 'Формула ' + i + ' не истинна ни в одном из миров'; },
+      cellWorld: function (i, w) { return 'Формула ' + i + ' истинна в мире ' + w; },
+      bdIntro: 'Множества миров, где истинны подформулы:',
+      noAnswer: 'нет ответа', correct: 'верно', errors: function (k) { return 'ошибок: ' + k; },
+      breakdown: 'Разбор', hideBreakdown: 'Скрыть разбор',
+      partial: function (d, a, r) { return 'Проверено формул: ' + d + ' из ' + a + '. Без ошибок: ' + r + ' из ' + d + '.'; },
+      allOk: 'Все отметки верны.',
+      total: function (g, t, r, n) { return 'Верно: ' + g + ' из ' + t + ' клеток. Формулы без ошибок: ' + r + ' из ' + n + '.'; },
+      badVariant: 'Номер варианта: целое число от 1 до 99999.'
+    }
+  };
+  var lang = 'en';
+  function T(k) {
+    var v = I18N[lang][k];
+    return typeof v === 'function' ? v.apply(null, Array.prototype.slice.call(arguments, 1)) : v;
+  }
+  function initialLang() {
+    var mm = /lang=(en|ru)/.exec(location.hash || '');
+    if (mm) return mm[1];
+    try {
+      var l = localStorage.getItem('kripke-lang');
+      if (l === 'en' || l === 'ru') return l;
+    } catch (e) { /* хранилище недоступно */ }
+    return 'en';
+  }
+  // статичные тексты страницы
+  function applyStatic() {
+    document.documentElement.lang = lang;
+    document.title = T('title');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n]'), function (el) { el.textContent = T(el.getAttribute('data-i18n')); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n-aria]'), function (el) { el.setAttribute('aria-label', T(el.getAttribute('data-i18n-aria'))); });
+    Array.prototype.forEach.call(document.querySelectorAll('.lang button'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-lang') === lang ? 'true' : 'false');
+    });
+  }
+
   var SVGNS = 'http://www.w3.org/2000/svg';
   var mathOn = !!window.__mjReady;
 
@@ -773,16 +862,16 @@ window.MathJax = {
       var at = [];
       if (m.val[i].p) at.push('p'); if (m.val[i].q) at.push('q');
       var sc3 = bitsOf(m.succ[i], n).map(worldTxt);
-      parts.push(worldTxt(i) + ': ' + (at.length ? 'истинны ' + at.join(', ') : 'атомы ложны') + '; переходы: ' + (sc3.length ? sc3.join(', ') : 'нет'));
+      parts.push(worldTxt(i) + ': ' + (at.length ? T('ariaTrue') + at.join(', ') : T('ariaAtomsFalse')) + T('ariaSucc') + (sc3.length ? sc3.join(', ') : T('ariaNone')));
     }
-    svg.setAttribute('aria-label', 'Модель Крипке. ' + parts.join('. ') + '.');
+    svg.setAttribute('aria-label', T('ariaModel') + parts.join('. ') + '.');
   }
 
   function renderModelText() {
     var m = state.model, n = m.n;
     var cap = document.getElementById('caption');
     cap.innerHTML = '';
-    cap.appendChild(document.createTextNode('Модель '));
+    cap.appendChild(document.createTextNode(T('caption')));
     cap.appendChild(mathSpan('M = \\langle W, R, V\\rangle', '<i>M</i> = ⟨<i>W</i>, <i>R</i>, <i>V</i>⟩', 'M = ⟨W, R, V⟩'));
 
     var ul = document.getElementById('sets');
@@ -825,10 +914,10 @@ window.MathJax = {
     [
       ["M, w \\models \\Box\\varphi \\iff \\forall w'\\,(wRw' \\Rightarrow M, w' \\models \\varphi)",
         '<i>M</i>, <i>w</i> ⊨ □φ ⇔ ∀<i>w′</i> (<i>wRw′</i> ⇒ <i>M</i>, <i>w′</i> ⊨ φ)',
-        'M, w ⊨ □φ тогда и только тогда, когда для всех w′: если wRw′, то M, w′ ⊨ φ'],
+        T('semBox')],
       ["M, w \\models \\Diamond\\varphi \\iff \\exists w'\\,(wRw' \\wedge M, w' \\models \\varphi)",
         '<i>M</i>, <i>w</i> ⊨ ◇φ ⇔ ∃<i>w′</i> (<i>wRw′</i> ∧ <i>M</i>, <i>w′</i> ⊨ φ)',
-        'M, w ⊨ ◇φ тогда и только тогда, когда существует w′ такой, что wRw′ и M, w′ ⊨ φ']
+        T('semDia')]
     ].forEach(function (row) {
       var li = document.createElement('li');
       li.appendChild(mathSpan(row[0], row[1], row[2]));
@@ -846,7 +935,7 @@ window.MathJax = {
     document.getElementById('grid').style.setProperty('--cols', String(n + 1));
 
     var hr = document.createElement('tr');
-    var th0 = document.createElement('th'); th0.className = 'fcol'; th0.scope = 'col'; th0.textContent = 'Формула';
+    var th0 = document.createElement('th'); th0.className = 'fcol'; th0.scope = 'col'; th0.textContent = T('formula');
     hr.appendChild(th0);
     for (var w = 0; w < n; w++) {
       var th = document.createElement('th'); th.scope = 'col';
@@ -854,8 +943,9 @@ window.MathJax = {
       hr.appendChild(th);
     }
     var thN = document.createElement('th'); thN.scope = 'col'; thN.className = 'nonecol';
-    thN.innerHTML = '<span class="nonehead">ни в одном</span>';
-    thN.title = 'ни в одном из миров';
+    var nh = document.createElement('span'); nh.className = 'nonehead'; nh.textContent = T('none');
+    thN.appendChild(nh);
+    thN.title = T('noneTitle');
     hr.appendChild(thN);
     thead.appendChild(hr);
 
@@ -871,8 +961,8 @@ window.MathJax = {
 
       var st = document.createElement('div'); st.className = 'rowstatus';
       var chk = document.createElement('button'); chk.type = 'button'; chk.className = 'btn sm rowcheck';
-      chk.textContent = 'Проверить';
-      chk.setAttribute('aria-label', 'Проверить формулу ' + (fi + 1));
+      chk.textContent = T('check');
+      chk.setAttribute('aria-label', T('checkAria', fi + 1));
       chk.addEventListener('click', function () {
         state.checked[fi] = true;
         renderResults();
@@ -898,8 +988,8 @@ window.MathJax = {
           var inp = document.createElement('input'); inp.type = 'checkbox';
           inp.checked = state.marks[fi][c];
           inp.setAttribute('aria-label', c === n
-            ? 'Формула ' + (fi + 1) + ' не истинна ни в одном из миров'
-            : 'Формула ' + (fi + 1) + ' истинна в мире ' + worldTxt(c));
+            ? T('cellNone', fi + 1)
+            : T('cellWorld', fi + 1, worldTxt(c)));
           inp.addEventListener('change', function () {
             state.marks[fi][c] = inp.checked;
             // «ни в одном» и отметки миров взаимно исключают друг друга
@@ -928,7 +1018,7 @@ window.MathJax = {
 
       var bd = document.createElement('tr'); bd.className = 'bd'; bd.id = 'bd-' + fi; bd.hidden = true;
       var bdc = document.createElement('td'); bdc.colSpan = n + 2;
-      var intro = document.createElement('p'); intro.className = 'bd-intro'; intro.textContent = 'Множества миров, где истинны подформулы:';
+      var intro = document.createElement('p'); intro.className = 'bd-intro'; intro.textContent = T('bdIntro');
       var ul = document.createElement('ul'); ul.className = 'bd-list';
       subformulas(f).forEach(function (g) {
         var v = evalF(g, state.model);
@@ -969,9 +1059,9 @@ window.MathJax = {
       tg.hidden = !done;
       if (done) {
         var answered = state.marks[fi].some(function (x) { return x; });
-        res.textContent = !answered ? 'нет ответа' : errs === 0 ? 'верно' : 'ошибок: ' + errs;
+        res.textContent = !answered ? T('noAnswer') : errs === 0 ? T('correct') : T('errors', errs);
         res.className = 'res ' + (answered && errs === 0 ? 'ok' : 'bad');
-        tg.textContent = state.open[fi] ? 'Скрыть разбор' : 'Разбор';
+        tg.textContent = state.open[fi] ? T('hideBreakdown') : T('breakdown');
         tg.setAttribute('aria-expanded', state.open[fi] ? 'true' : 'false');
       }
       bd.hidden = !(done && state.open[fi]);
@@ -1005,11 +1095,11 @@ window.MathJax = {
     if (!done) { p.textContent = ''; return; }
     var s = score();
     if (done < all) {
-      p.textContent = 'Проверено формул: ' + done + ' из ' + all + '. Без ошибок: ' + s.rowsOk + ' из ' + done + '.';
+      p.textContent = T('partial', done, all, s.rowsOk);
     } else if (s.good === s.total) {
-      p.innerHTML = '<span class="ok">Все отметки верны.</span>';
+      p.innerHTML = '<span class="ok">' + T('allOk') + '</span>';
     } else {
-      p.textContent = 'Верно: ' + s.good + ' из ' + s.total + ' клеток. Формулы без ошибок: ' + s.rowsOk + ' из ' + state.formulas.length + '.';
+      p.textContent = T('total', s.good, s.total, s.rowsOk, state.formulas.length);
     }
   }
 
@@ -1025,7 +1115,7 @@ window.MathJax = {
 
   function persist(seed) {
     try { localStorage.setItem('kripke-variant', String(seed)); } catch (e) { /* хранилище недоступно */ }
-    try { history.replaceState(null, '', '#v=' + seed); } catch (e) { /* адрес не меняется */ }
+    try { history.replaceState(null, '', '#v=' + seed + (lang === 'en' ? '' : '&lang=' + lang)); } catch (e) { /* адрес не меняется */ }
   }
   function randomSeed(except) {
     var s;
@@ -1074,7 +1164,7 @@ window.MathJax = {
     var raw = document.getElementById('variant').value.trim();
     var v = /^\d{1,5}$/.test(raw) ? parseInt(raw, 10) : NaN;
     if (!(v >= 1 && v <= 99999)) {
-      document.getElementById('variant-msg').textContent = 'Номер варианта: целое число от 1 до 99999.';
+      document.getElementById('variant-msg').textContent = T('badVariant');
       return;
     }
     load(v);
@@ -1088,6 +1178,21 @@ window.MathJax = {
     if (state.model) renderAll();
   };
 
+  function setLang(l) {
+    if (l === lang) return;
+    lang = l;
+    try { localStorage.setItem('kripke-lang', l); } catch (e) { /* хранилище недоступно */ }
+    document.getElementById('variant-msg').textContent = '';
+    applyStatic();
+    persist(state.seed);
+    renderAll();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.lang button'), function (b) {
+    b.addEventListener('click', function () { setLang(b.getAttribute('data-lang')); });
+  });
+
+  lang = initialLang();
+  applyStatic();
   load(initialSeed());
 })();
 </script>
