@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Истинность формул в модели Крипке</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+:root{
+  --paper:#ffffff;
+  --text:#22252d;
+  --muted:#5f6576;
+  --stroke:#000000;
+  --node:#e1e5f2;
+  --rule:#dde0e8;
+  --rule-strong:#a3a9b8;
+  --accent:#34438b;
+  --on-accent:#ffffff;
+  --ok:#2c7a4b;
+  --err:#b53a2f;
+  --tint:#f3f5fa;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#16181d; --text:#e4e6ec; --muted:#9aa0b1; --stroke:#e8eaf0; --node:#2f3651;
+    --rule:#2d313c; --rule-strong:#565c6e; --accent:#a4b3f2; --on-accent:#141826;
+    --ok:#66c48b; --err:#f08172; --tint:#1e2129; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#16181d; --text:#e4e6ec; --muted:#9aa0b1; --stroke:#e8eaf0; --node:#2f3651;
+  --rule:#2d313c; --rule-strong:#565c6e; --accent:#a4b3f2; --on-accent:#141826;
+  --ok:#66c48b; --err:#f08172; --tint:#1e2129; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0;background:var(--paper);color:var(--text);
+  font-family:"PT Serif",Georgia,"Times New Roman",serif;
+  font-size:1.0625rem;line-height:1.6;-webkit-text-size-adjust:100%;
+}
+main{max-width:1120px;margin:0 auto;padding:2.25rem 1.5rem 3rem}
+h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:700;margin:0 0 .45rem;letter-spacing:-.005em}
+.lead{margin:0;color:var(--muted);max-width:64ch}
+
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin:1.4rem 0 2rem;padding-bottom:1.25rem;border-bottom:1px solid var(--rule)}
+.variant{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.variant label{color:var(--muted)}
+.variant input{
+  font:inherit;width:7.5ch;padding:.35rem .5rem;border:1.5px solid var(--rule-strong);border-radius:6px;
+  background:var(--paper);color:var(--text);font-variant-numeric:tabular-nums;
+}
+.variant input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.msg{color:var(--err);font-size:.9rem;flex-basis:100%}
+.msg:empty{display:none}
+.spacer{flex:1}
+
+.btn{
+  font:inherit;font-size:.97rem;min-height:40px;padding:.4rem 1rem;border-radius:6px;cursor:pointer;
+  border:1.5px solid var(--accent);background:transparent;color:var(--accent);
+}
+.btn:hover{background:var(--tint)}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:focus-visible,.linkbtn:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:2.75rem;align-items:start}
+@media (max-width:880px){.workspace{grid-template-columns:minmax(0,1fr);gap:1.75rem}}
+
+figure{margin:0}
+#kripke{display:block;width:100%;max-width:540px;height:auto;margin:0 auto;color:var(--stroke)}
+#kripke .edge{fill:none;stroke:var(--stroke);stroke-width:1.35}
+#kripke .ah{fill:var(--stroke)}
+#kripke .world{fill:var(--node);stroke:var(--stroke);stroke-width:1.4}
+#kripke .lbl-text{font-family:"PT Serif",Georgia,serif;font-style:italic;fill:var(--stroke)}
+figcaption{text-align:center;color:var(--muted);font-size:.95rem;margin-top:.6rem}
+
+details{margin-top:1.25rem;border-top:1px solid var(--rule);padding-top:.75rem}
+summary{cursor:pointer;color:var(--accent);width:max-content;max-width:100%}
+.setlist{list-style:none;margin:.75rem 0 0;padding:0;display:grid;gap:.45rem}
+.setlist li{line-height:2}
+.note{color:var(--muted);font-size:.95rem;margin:.6rem 0 0}
+.sem{margin:.75rem 0 0;padding:0;list-style:none;display:grid;gap:.5rem}
+
+.m{display:inline-block;line-height:1}
+.m svg{overflow:visible}
+.m-fallback{font-style:normal}
+.m-fallback i{font-style:italic}
+
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.grid{border-collapse:collapse;width:100%;min-width:330px}
+.grid th,.grid td{padding:.5rem .3rem;border-bottom:1px solid var(--rule);text-align:center;vertical-align:middle}
+.grid thead th{font-weight:400;color:var(--muted);border-bottom:1.5px solid var(--rule-strong);padding-top:0}
+.grid .fcol{text-align:left;padding-left:0;width:100%}
+.fhead{display:flex;align-items:baseline;gap:.5rem}
+.num{color:var(--muted);font-variant-numeric:tabular-nums;min-width:2em}
+.formula{font-size:1.12rem;white-space:nowrap}
+.grid .nonecol{border-left:1px solid var(--rule);padding-left:.55rem}
+.nonehead{display:inline-block;font-size:.8rem;line-height:1.15;max-width:5.2em}
+.res.muted{color:var(--muted)}
+.rowstatus{display:flex;gap:.9rem;align-items:baseline;margin:.2rem 0 0 2.5em;font-size:.9rem}
+.rowstatus[hidden]{display:none}
+.res.ok{color:var(--ok)}
+.res.bad{color:var(--err)}
+.linkbtn{font:inherit;font-size:inherit;background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+
+.cell{position:relative;display:inline-grid;place-items:center;width:44px;height:44px;cursor:pointer;vertical-align:middle}
+.cell input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.box{
+  width:28px;height:28px;border:1.5px solid var(--rule-strong);border-radius:5px;display:grid;place-items:center;
+  background:var(--paper);color:var(--on-accent);transition:background-color .12s,border-color .12s;
+}
+.box svg{width:16px;height:16px;display:none}
+.cell:hover .box{border-color:var(--accent)}
+.cell input:focus-visible + .box{outline:2px solid var(--accent);outline-offset:2px}
+.cell input:checked + .box{background:var(--accent);border-color:var(--accent)}
+.cell input:checked + .box .i-check{display:block}
+.cell.r-hit input + .box{background:var(--ok);border-color:var(--ok)}
+.cell.r-extra input + .box{background:var(--err);border-color:var(--err)}
+.cell.r-extra input:checked + .box .i-check{display:none}
+.cell.r-extra input:checked + .box .i-cross{display:block}
+.cell.r-miss .box{border:2px dashed var(--err);background:transparent;color:var(--err)}
+.cell.r-miss .box .i-check{display:block}
+
+tr.bd td{text-align:left;background:var(--tint);padding:.65rem .9rem}
+tr.bd[hidden]{display:none}
+.bd-intro{margin:0 0 .4rem;color:var(--muted);font-size:.9rem}
+.bd-list{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+
+.actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.25rem}
+#summary{margin:1rem 0 0;font-size:1.05rem;min-height:1.6em}
+#summary .ok{color:var(--ok)}
+.legend{display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;margin-top:.9rem;color:var(--muted);font-size:.9rem}
+.legend[hidden]{display:none}
+.lg{display:inline-flex;align-items:center;gap:.45rem}
+.sw{width:18px;height:18px;border-radius:4px;display:inline-grid;place-items:center;color:var(--on-accent)}
+.sw svg{width:12px;height:12px}
+.sw-hit{background:var(--ok)}
+.sw-extra{background:var(--err)}
+.sw-miss{border:2px dashed var(--err);color:var(--err)}
+
+@media (max-width:520px){
+  main{padding:1.5rem 1rem 2.5rem}
+  .cell{width:38px;height:38px}
+  .box{width:26px;height:26px}
+  .rowstatus{margin-left:0;flex-wrap:wrap}
+}
+/* узкий экран: формула занимает отдельную строку над клетками, горизонтальной прокрутки нет */
+@media (max-width:560px){
+  table.grid{min-width:0}
+  table.grid,.grid thead,.grid tbody{display:block}
+  .grid tr{display:grid;grid-template-columns:repeat(var(--cols,5),minmax(0,1fr));align-items:center;border-bottom:1px solid var(--rule)}
+  .grid thead tr{border-bottom:1.5px solid var(--rule-strong)}
+  .grid th,.grid td{border-bottom:0;padding:.35rem .1rem}
+  .grid thead th{padding-bottom:.4rem}
+  .grid .fcol{grid-column:1 / -1;padding:.65rem 0 .1rem}
+  .grid thead th.fcol{display:none}
+  .grid tr.bd:not([hidden]){display:block}
+  .grid tr.bd td{display:block}
+}
+@media (prefers-reduced-motion:reduce){.box{transition:none}}
+</style>
+<script>
+window.MathJax = {
+  svg: { fontCache: 'none' },
+  options: { enableMenu: false },
+  startup: {
+    typeset: false,
+    ready: function () {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(function () {
+        window.__mjReady = true;
+        if (typeof window.__onMathReady === 'function') window.__onMathReady();
+      });
+    }
+  }
+};
+</script>
+<script async id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Истинность формул в модели Крипке</h1>
+    <p class="lead">Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и нажмите «Проверить». После проверки можно открыть разбор: множества миров, где истинны подформулы.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="variant">
+      <label for="variant">Вариант</label>
+      <input id="variant" type="text" inputmode="numeric" autocomplete="off" maxlength="5">
+      <button class="btn" id="open" type="button">Открыть</button>
+      <span class="msg" id="variant-msg" role="alert"></span>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" id="new" type="button">Новое задание</button>
+  </div>
+
+  <div class="workspace">
+    <section aria-label="Модель">
+      <figure>
+        <svg id="kripke" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
+        <figcaption id="caption"></figcaption>
+      </figure>
+      <details>
+        <summary>Модель в виде множеств</summary>
+        <ul class="setlist" id="sets"></ul>
+      </details>
+    </section>
+
+    <section aria-label="Задание">
+      <div class="table-wrap">
+        <table class="grid" id="grid">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="check" type="button">Проверить</button>
+        <button class="btn" id="reset" type="button">Сбросить отметки</button>
+      </div>
+      <p id="summary" aria-live="polite"></p>
+      <div class="legend" id="legend" hidden>
+        <span class="lg"><span class="sw sw-hit"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>верная отметка</span>
+        <span class="lg"><span class="sw sw-extra"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></span>лишняя отметка: формула здесь ложна</span>
+        <span class="lg"><span class="sw sw-miss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>пропущено: формула здесь истинна</span>
+      </div>
+      <details>
+        <summary>Напоминание о семантике</summary>
+        <ul class="sem" id="sem"></ul>
+        <p class="note">В мире без последователей любая формула вида □φ истинна, а любая формула вида ◇φ ложна.</p>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= Логика (без DOM) ================= */
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function popcount(m) { var c = 0; while (m) { c += m & 1; m >>>= 1; } return c; }
+  function bitsOf(mask, n) { var r = []; for (var i = 0; i < n; i++) if (mask >> i & 1) r.push(i); return r; }
+
+  function weaklyConnected(n, succ) {
+    var seen = 1, stack = [0];
+    while (stack.length) {
+      var i = stack.pop();
+      for (var j = 0; j < n; j++) {
+        if (seen >> j & 1) continue;
+        if ((succ[i] >> j & 1) || (succ[j] >> i & 1)) { seen |= 1 << j; stack.push(j); }
+      }
+    }
+    return seen === (1 << n) - 1;
+  }
+
+  // Модель с исходного рисунка: запасной вариант
+  var PICTURE_MODEL = {
+    n: 4,
+    val: [{ p: true, q: false }, { p: true, q: true }, { p: true, q: false }, { p: false, q: true }],
+    succ: [14, 2, 0, 4]
+  };
+
+  function genModel(rng) {
+    var n = rng() < 0.5 ? 4 : 5;
+    var wantDeadEnd = rng() < 0.75;
+    for (var tries = 0; tries < 20000; tries++) {
+      var val = [], i, j;
+      for (i = 0; i < n; i++) val.push({ p: rng() < 0.5, q: rng() < 0.45 });
+      var pc = 0, qc = 0;
+      for (i = 0; i < n; i++) { if (val[i].p) pc++; if (val[i].q) qc++; }
+      if (pc === 0 || pc === n || qc === 0 || qc === n) continue;
+      var succ = [], pEdge = n === 4 ? 0.34 : 0.28;
+      for (i = 0; i < n; i++) {
+        succ.push(0);
+        for (j = 0; j < n; j++) {
+          if (i === j) { if (rng() < 0.16) succ[i] |= 1 << j; }
+          else if (rng() < pEdge) succ[i] |= 1 << j;
+        }
+      }
+      var edges = 0, loops = 0, bidir = 0, maxOut = 0, branching = 0, dead = 0;
+      for (i = 0; i < n; i++) {
+        var out = popcount(succ[i]);
+        edges += out; if (out > maxOut) maxOut = out;
+        if (succ[i] >> i & 1) loops++;
+        if (popcount(succ[i] & ~(1 << i)) >= 2) branching++;
+        if (succ[i] === 0) dead++;
+        for (j = i + 1; j < n; j++) if ((succ[i] >> j & 1) && (succ[j] >> i & 1)) bidir++;
+      }
+      if (edges < n || edges > 2 * n - 1) continue;
+      if (maxOut > 3 || loops > 2 || bidir > 1 || branching < 1 || dead > 2) continue;
+      if (wantDeadEnd ? dead < 1 : dead > 0) continue;
+      if (!weaklyConnected(n, succ)) continue;
+      return { n: n, val: val, succ: succ };
+    }
+    return PICTURE_MODEL;
+  }
+
+  // Шаблоны расположения миров (выпуклые, чтобы стрелки не проходили через вершины)
+  var LAYOUTS = {
+    4: [
+      [[130, 250], [320, 80], [470, 250], [320, 420]],
+      [[150, 110], [450, 110], [450, 390], [150, 390]]
+    ],
+    5: [
+      [[110, 250], [280, 80], [490, 120], [490, 380], [280, 420]],
+      [[300, 70], [500, 200], [420, 420], [180, 420], [100, 200]]
+    ]
+  };
+  function genLayout(n, rng) {
+    var t = LAYOUTS[n][Math.floor(rng() * LAYOUTS[n].length)];
+    var flip = rng() < 0.5;
+    return t.map(function (p) { return { x: p[0], y: flip ? 500 - p[1] : p[1] }; });
+  }
+
+  // ----- формулы -----
+  var P = { t: 'p' }, Q = { t: 'q' }, BOT = { t: 'bot' }, TOP = { t: 'top' };
+  function mk(t, a, b) { return { t: t, a: a, b: b }; }
+  var BIN = { and: 1, or: 1, imp: 1 };
+
+  function key(f) {
+    switch (f.t) {
+      case 'p': case 'q': case 'bot': case 'top': return f.t;
+      case 'not': return '~' + key(f.a);
+      case 'box': return 'B' + key(f.a);
+      case 'dia': return 'D' + key(f.a);
+      default: return '(' + key(f.a) + ' ' + f.t + ' ' + key(f.b) + ')';
+    }
+  }
+  function size(f) {
+    if (f.t in BIN) return 1 + size(f.a) + size(f.b);
+    if (f.a) return 1 + size(f.a);
+    return 1;
+  }
+  function wellFormed(f) {
+    switch (f.t) {
+      case 'p': case 'q': case 'bot': case 'top': return true;
+      case 'not': return f.a.t !== 'not' && f.a.t !== 'bot' && f.a.t !== 'top' && wellFormed(f.a);
+      case 'box': case 'dia': return wellFormed(f.a);
+      default:
+        var ka = key(f.a), kb = key(f.b);
+        return ka !== kb && ka !== '~' + kb && kb !== '~' + ka && wellFormed(f.a) && wellFormed(f.b);
+    }
+  }
+  function atomMask(m, name) {
+    var r = 0;
+    for (var i = 0; i < m.n; i++) if (m.val[i][name]) r |= 1 << i;
+    return r;
+  }
+  function evalF(f, m) {
+    var full = (1 << m.n) - 1, A, r, i;
+    switch (f.t) {
+      case 'p': return atomMask(m, 'p');
+      case 'q': return atomMask(m, 'q');
+      case 'bot': return 0;
+      case 'top': return full;
+      case 'not': return full & ~evalF(f.a, m);
+      case 'and': return evalF(f.a, m) & evalF(f.b, m);
+      case 'or': return evalF(f.a, m) | evalF(f.b, m);
+      case 'imp': return full & (~evalF(f.a, m) | evalF(f.b, m));
+      case 'box':
+        A = evalF(f.a, m); r = 0;
+        for (i = 0; i < m.n; i++) if ((m.succ[i] & ~A) === 0) r |= 1 << i;
+        return r;
+      case 'dia':
+        A = evalF(f.a, m); r = 0;
+        for (i = 0; i < m.n; i++) if (m.succ[i] & A) r |= 1 << i;
+        return r;
+    }
+    throw new Error('unknown node ' + f.t);
+  }
+
+  function makeGen(rng) {
+    function pick(a) { return a[Math.floor(rng() * a.length)]; }
+    function atom() { return rng() < 0.5 ? P : Q; }
+    function other(a) { return a === P ? Q : P; }
+    function lit() { var a = atom(); return rng() < 0.25 ? mk('not', a) : a; }
+    function binop() { var r = rng(); return r < 0.36 ? 'and' : r < 0.64 ? 'or' : 'imp'; }
+    function M() { return rng() < 0.5 ? 'box' : 'dia'; }
+    function simple() {
+      if (rng() < 0.55) return lit();
+      var a = atom(), x = a, y = other(a);
+      if (rng() < 0.2) x = mk('not', x);
+      if (rng() < 0.2) y = mk('not', y);
+      var xp = a === P ? x : y, yq = a === P ? y : x;
+      return rng() < 0.75 ? mk(binop(), xp, yq) : mk(binop(), yq, xp);
+    }
+    return {
+      // глубина 1
+      S1: function () { return mk(M(), simple()); },
+      // глубина 2
+      S2: function () {
+        var r = rng();
+        if (r < 0.55) return mk(M(), mk(M(), lit()));
+        if (r < 0.78) return mk(M(), mk('not', mk(M(), atom())));
+        return mk('not', mk(M(), mk(M(), atom())));
+      },
+      // булевы комбинации модальных формул
+      S3: function () {
+        var r = rng(), a = atom(), b = other(a);
+        if (r < 0.25) { var x = rng() < 0.5 ? a : b; return mk('imp', mk(M(), x), x); }
+        if (r < 0.5) return mk(binop(), mk(M(), a), mk(M(), rng() < 0.5 ? b : a));
+        if (r < 0.75) return mk(binop(), mk(M(), lit()), lit());
+        return mk('not', mk(M(), simple()));
+      },
+      // формулы с константами: тупики и их соседи
+      S4: function () {
+        return pick([mk('box', BOT), mk('dia', TOP), mk('dia', mk('box', BOT)), mk('box', mk('dia', TOP))]);
+      },
+      // модальность над булевой комбинацией с модальностью внутри
+      S5: function () {
+        var a = atom(), b = other(a);
+        if (rng() < 0.5) return mk(M(), mk(binop(), rng() < 0.5 ? a : mk('not', a), mk(M(), b)));
+        return mk(M(), mk(binop(), mk(M(), a), rng() < 0.5 ? b : mk('not', b)));
+      }
+    };
+  }
+
+  function hasOp(f, t) {
+    if (f.t === t) return true;
+    if (f.t in BIN) return hasOp(f.a, t) || hasOp(f.b, t);
+    return f.a ? hasOp(f.a, t) : false;
+  }
+
+  function genFormulas(m, rng) {
+    var G = makeGen(rng);
+    var k = rng() < 0.5 ? 5 : 6;
+    var full = (1 << m.n) - 1;
+    var best = null;
+    for (var attempt = 0; attempt < 30; attempt++) {
+      var slots = ['S1', 'S1', 'S2', 'S3', 'S5'];
+      if (rng() < 0.35) slots[1] = 'S4';
+      if (k === 6) slots.push(rng() < 0.5 ? 'S3' : 'S2');
+      // примерно в половине вариантов одна формула ложна во всех мирах
+      var emptySlot = rng() < 0.5 ? Math.floor(rng() * slots.length) : -1;
+      var out = [], keys = {}, setCount = {};
+      var tryPick = function (gen, tries, mode) {
+        for (var t = 0; t < tries; t++) {
+          var f = gen();
+          if (!wellFormed(f) || size(f) > 9) continue;
+          var kf = key(f);
+          if (keys[kf]) continue;
+          var v = evalF(f, m);
+          if (mode === 'empty' && v !== 0) continue;
+          if (mode === 'strict' && (v === 0 || v === full)) continue;
+          if (mode === 'strict' && (setCount[v] || 0) >= 2) continue;
+          return { f: f, v: v };
+        }
+        return null;
+      };
+      for (var s = 0; s < slots.length; s++) {
+        var alt = ['S1', 'S3', 'S2', 'S5'], a, c = null;
+        if (s === emptySlot) {
+          c = tryPick(G[slots[s]], 300, 'empty');
+          for (a = 0; a < alt.length && !c; a++) c = tryPick(G[alt[a]], 200, 'empty');
+        }
+        if (!c) c = tryPick(G[slots[s]], 300, 'strict');
+        for (a = 0; a < alt.length && !c; a++) c = tryPick(G[alt[a]], 200, 'strict');
+        if (!c) c = tryPick(G[slots[s]], 300, 'any');
+        if (!c) continue;
+        keys[key(c.f)] = true;
+        setCount[c.v] = (setCount[c.v] || 0) + 1;
+        out.push(c.f);
+      }
+      var good = out.length === k &&
+        out.some(function (f) { return hasOp(f, 'box'); }) &&
+        out.some(function (f) { return hasOp(f, 'dia'); });
+      if (good) return out;
+      if (!best || out.length > best.length) best = out;
+    }
+    return best;
+  }
+
+  // ----- печать -----
+  var OPS = { and: ['\\wedge', '∧'], or: ['\\vee', '∨'], imp: ['\\to', '→'] };
+  function toTex(f, nested) {
+    switch (f.t) {
+      case 'p': return 'p';
+      case 'q': return 'q';
+      case 'bot': return '\\bot';
+      case 'top': return '\\top';
+      case 'not': return '\\neg ' + toTex(f.a, true);
+      case 'box': return '\\Box ' + toTex(f.a, true);
+      case 'dia': return '\\Diamond ' + toTex(f.a, true);
+      default:
+        var s = toTex(f.a, true) + ' ' + OPS[f.t][0] + ' ' + toTex(f.b, true);
+        return nested ? '(' + s + ')' : s;
+    }
+  }
+  function toTxt(f, nested) {
+    switch (f.t) {
+      case 'p': return 'p';
+      case 'q': return 'q';
+      case 'bot': return '⊥';
+      case 'top': return '⊤';
+      case 'not': return '¬' + toTxt(f.a, true);
+      case 'box': return '□' + toTxt(f.a, true);
+      case 'dia': return '◇' + toTxt(f.a, true);
+      default:
+        var s = toTxt(f.a, true) + ' ' + OPS[f.t][1] + ' ' + toTxt(f.b, true);
+        return nested ? '(' + s + ')' : s;
+    }
+  }
+  // составные подформулы в порядке построения
+  function subformulas(f) {
+    var list = [], seen = {};
+    (function walk(g) {
+      if (g.t in BIN) { walk(g.a); walk(g.b); }
+      else if (g.a) walk(g.a);
+      else return;
+      var k = key(g);
+      if (!seen[k]) { seen[k] = true; list.push(g); }
+    })(f);
+    return list;
+  }
+
+  var API = {
+    mulberry32: mulberry32, genModel: genModel, genLayout: genLayout, genFormulas: genFormulas,
+    evalF: evalF, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
+    LAYOUTS: LAYOUTS, PICTURE_MODEL: PICTURE_MODEL
+  };
+  if (typeof document === 'undefined') {
+    if (typeof module !== 'undefined') module.exports = API;
+    return;
+  }
+
+  /* ================= Отрисовка ================= */
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var mathOn = !!window.__mjReady;
+
+  var state = { seed: 0, model: null, layout: null, formulas: [], truth: [], marks: [], checked: false, stale: false, open: [] };
+
+  function svgEl(tag, attrs) {
+    var e = document.createElementNS(SVGNS, tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function fx(v) { return (Math.round(v * 10) / 10).toString(); }
+  function htmlEsc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function italicLetters(s) { return htmlEsc(s).replace(/\b([pqwWRVv])\b/g, '<i>$1</i>'); }
+
+  function worldTex(i) { return 'w_{' + (i + 1) + '}'; }
+  function worldTxt(i) { return 'w' + (i + 1); }
+  function worldHtml(i) { return '<i>w</i><sub>' + (i + 1) + '</sub>'; }
+  function setTex(mask, n) {
+    var b = bitsOf(mask, n);
+    return b.length ? '\\{' + b.map(worldTex).join(', ') + '\\}' : '\\varnothing';
+  }
+  function setTxt(mask, n) {
+    var b = bitsOf(mask, n);
+    return b.length ? '{' + b.map(worldTxt).join(', ') + '}' : '∅';
+  }
+  function setHtml(mask, n) {
+    var b = bitsOf(mask, n);
+    return b.length ? '{' + b.map(worldHtml).join(', ') + '}' : '∅';
+  }
+
+  // Формула в HTML: MathJax (если загрузился) или запасной текст
+  function mathSpan(tex, fallbackHtml, label) {
+    var span = document.createElement('span');
+    span.className = 'm';
+    if (mathOn) {
+      try {
+        var svg = MathJax.tex2svg(tex, { display: false }).querySelector('svg');
+        if (svg) {
+          svg.setAttribute('aria-hidden', 'true');
+          svg.removeAttribute('role');
+          span.appendChild(svg);
+          span.setAttribute('role', 'img');
+          span.setAttribute('aria-label', label);
+          return span;
+        }
+      } catch (e) { /* запасной вариант ниже */ }
+    }
+    span.classList.add('m-fallback');
+    span.innerHTML = fallbackHtml;
+    return span;
+  }
+
+  // Подпись внутри SVG-рисунка
+  function svgLabel(tex, plain, sub, fs) {
+    if (mathOn) {
+      try {
+        var s = MathJax.tex2svg(tex, { display: false }).querySelector('svg');
+        var vb = s.getAttribute('viewBox').trim().split(/[\s,]+/).map(Number);
+        var w = vb[2] / 1000 * fs, h = vb[3] / 1000 * fs;
+        s.removeAttribute('style');
+        s.removeAttribute('role');
+        s.setAttribute('width', fx(w));
+        s.setAttribute('height', fx(h));
+        s.setAttribute('overflow', 'visible');
+        s.setAttribute('aria-hidden', 'true');
+        return { el: s, w: w, h: h, place: function (cx, cy) { s.setAttribute('x', fx(cx - w / 2)); s.setAttribute('y', fx(cy - h / 2)); } };
+      } catch (e) { /* запасной вариант ниже */ }
+    }
+    var t = svgEl('text', { 'class': 'lbl-text', 'font-size': fs, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+    var w2;
+    if (sub) {
+      var a = svgEl('tspan'); a.textContent = plain;
+      var b = svgEl('tspan', { 'font-size': fx(fs * 0.7), 'font-style': 'normal', dy: fx(fs * 0.28) }); b.textContent = sub;
+      t.appendChild(a); t.appendChild(b);
+      w2 = fs * (0.6 * plain.length + 0.4 * sub.length);
+    } else {
+      t.textContent = plain;
+      w2 = fs * 0.48 * plain.length;
+    }
+    return { el: t, w: w2, h: fs, place: function (cx, cy) { t.setAttribute('x', fx(cx)); t.setAttribute('y', fx(cy)); } };
+  }
+
+  function angDist(a, b) {
+    var d = Math.abs(a - b) % (2 * Math.PI);
+    return d > Math.PI ? 2 * Math.PI - d : d;
+  }
+  function minGap(a, list) {
+    var g = Math.PI;
+    for (var i = 0; i < list.length; i++) g = Math.min(g, angDist(a, list[i]));
+    return g;
+  }
+  function segDist(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  }
+  function bez(P0, P1, P2, P3, t) {
+    var u = 1 - t;
+    return {
+      x: u * u * u * P0.x + 3 * u * u * t * P1.x + 3 * u * t * t * P2.x + t * t * t * P3.x,
+      y: u * u * u * P0.y + 3 * u * u * t * P1.y + 3 * u * t * t * P2.y + t * t * t * P3.y
+    };
+  }
+  function U(a) { return { x: Math.cos(a), y: Math.sin(a) }; }
+  function add(p, v, k) { return { x: p.x + v.x * k, y: p.y + v.y * k }; }
+  function towards(from, to, len) {
+    var dx = to.x - from.x, dy = to.y - from.y, d = Math.hypot(dx, dy) || 1;
+    return { x: to.x - dx / d * len, y: to.y - dy / d * len };
+  }
+
+  function drawModel() {
+    var m = state.model, pos = state.layout, n = m.n, R = 34, ARROW = 4;
+    var svg = document.getElementById('kripke');
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    var defs = svgEl('defs');
+    var marker = svgEl('marker', { id: 'kripke-ah', viewBox: '-6 -5 11 10', refX: 0, refY: 0, markerWidth: 11, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto', overflow: 'visible' });
+    marker.appendChild(svgEl('path', { d: 'M4,0 L-5.2,-3.7 L-2.8,0 L-5.2,3.7 Z', 'class': 'ah' }));
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+    var gE = svgEl('g'), gN = svgEl('g'), gL = svgEl('g');
+    svg.appendChild(gE); svg.appendChild(gN); svg.appendChild(gL);
+
+    var cx = 0, cy = 0, i, j, k;
+    for (i = 0; i < n; i++) { cx += pos[i].x / n; cy += pos[i].y / n; }
+    var occ = pos.map(function () { return []; });
+    var ext = [];
+    function samples(P0, P1, P2, P3) { for (var t = 0; t <= 1.0001; t += 0.1) ext.push(bez(P0, P1, P2, P3, t)); }
+
+    // рёбра между разными мирами
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
+      if (i === j || !(m.succ[i] >> j & 1)) continue;
+      var pi = pos[i], pj = pos[j];
+      var th = Math.atan2(pj.y - pi.y, pj.x - pi.x), d = Math.hypot(pj.x - pi.x, pj.y - pi.y);
+      var bend = 0;
+      if (m.succ[j] >> i & 1) bend = 0.3;
+      else {
+        for (k = 0; k < n; k++) {
+          if (k === i || k === j) continue;
+          if (segDist(pos[k], pi, pj) < R + 12) {
+            var cr = (pj.x - pi.x) * (pos[k].y - pi.y) - (pj.y - pi.y) * (pos[k].x - pi.x);
+            bend = cr < 0 ? -0.45 : 0.45;
+            break;
+          }
+        }
+      }
+      var dAttr;
+      if (bend === 0) {
+        var S0 = add(pi, U(th), R), S3 = add(pj, U(th), -R), SE = add(S3, U(th), -ARROW);
+        dAttr = 'M' + fx(S0.x) + ',' + fx(S0.y) + ' L' + fx(SE.x) + ',' + fx(SE.y);
+        occ[i].push(th); occ[j].push(th + Math.PI);
+      } else {
+        var a0 = th - bend, a1 = th + Math.PI + bend, kk = d * 0.28;
+        var P0 = add(pi, U(a0), R), P3 = add(pj, U(a1), R);
+        var P1 = add(P0, U(a0), kk), P2 = add(P3, U(a1), kk);
+        var E = towards(P2, P3, ARROW);
+        dAttr = 'M' + fx(P0.x) + ',' + fx(P0.y) + ' C' + fx(P1.x) + ',' + fx(P1.y) + ' ' + fx(P2.x) + ',' + fx(P2.y) + ' ' + fx(E.x) + ',' + fx(E.y);
+        occ[i].push(a0); occ[j].push(a1);
+        samples(P0, P1, P2, P3);
+      }
+      gE.appendChild(svgEl('path', { d: dAttr, 'class': 'edge', 'marker-end': 'url(#kripke-ah)' }));
+    }
+
+    // петли: в сторону наибольшего свободного угла, по возможности наружу
+    for (i = 0; i < n; i++) {
+      if (!(m.succ[i] >> i & 1)) continue;
+      var outA = Math.atan2(pos[i].y - cy, pos[i].x - cx);
+      var bestA = 0, bestS = -1e9;
+      for (var s = 0; s < 24; s++) {
+        var a = s * Math.PI / 12 - Math.PI;
+        var sc = Math.min(minGap(a, occ[i]), 1.9) * 57.3 + 30 * Math.cos(a - outA) + 6 * Math.cos(a + 0.3);
+        if (sc > bestS) { bestS = sc; bestA = a; }
+      }
+      var sa = 0.42, L = 60, off = 0.55;
+      var L0 = add(pos[i], U(bestA + sa), R), L3 = add(pos[i], U(bestA - sa), R);
+      var L1 = add(L0, U(bestA + off), L), L2 = add(L3, U(bestA - off), L);
+      var LE = towards(L2, L3, ARROW);
+      gE.appendChild(svgEl('path', {
+        d: 'M' + fx(L0.x) + ',' + fx(L0.y) + ' C' + fx(L1.x) + ',' + fx(L1.y) + ' ' + fx(L2.x) + ',' + fx(L2.y) + ' ' + fx(LE.x) + ',' + fx(LE.y),
+        'class': 'edge', 'marker-end': 'url(#kripke-ah)'
+      }));
+      occ[i].push(bestA - 0.6, bestA, bestA + 0.6);
+      samples(L0, L1, L2, L3);
+    }
+
+    // миры и их оценки
+    for (i = 0; i < n; i++) {
+      gN.appendChild(svgEl('circle', { cx: pos[i].x, cy: pos[i].y, r: R, 'class': 'world' }));
+      ext.push({ x: pos[i].x - R, y: pos[i].y - R }, { x: pos[i].x + R, y: pos[i].y + R });
+      var atoms = [];
+      if (m.val[i].p) atoms.push('p');
+      if (m.val[i].q) atoms.push('q');
+      if (atoms.length) {
+        var lab = svgLabel(atoms.join(', '), atoms.join(', '), null, 21);
+        lab.place(pos[i].x, pos[i].y);
+        gL.appendChild(lab.el);
+      }
+    }
+
+    // имена миров снаружи кружков
+    var cands = [Math.PI / 4, 3 * Math.PI / 4, -Math.PI / 4, -3 * Math.PI / 4, 0, Math.PI, Math.PI / 2, -Math.PI / 2];
+    var pref = [10, 7, 4, 3, 2, 2, 1, 0];
+    for (i = 0; i < n; i++) {
+      var outB = Math.atan2(pos[i].y - cy, pos[i].x - cx);
+      var bi = 0, bs = -1e9;
+      for (var c = 0; c < cands.length; c++) {
+        var sc2 = Math.min(minGap(cands[c], occ[i]), 1.6) * 57.3 + 22 * Math.cos(cands[c] - outB) + pref[c];
+        if (sc2 > bs) { bs = sc2; bi = c; }
+      }
+      var dir = U(cands[bi]), gap = 10;
+      var wl = svgLabel(worldTex(i), 'w', String(i + 1), 20);
+      var sx = dir.x > 0.3 ? 1 : dir.x < -0.3 ? -1 : 0, sy = dir.y > 0.3 ? 1 : dir.y < -0.3 ? -1 : 0;
+      var bx = pos[i].x + dir.x * (R + gap) + sx * wl.w / 2;
+      var by = pos[i].y + dir.y * (R + gap) + sy * wl.h / 2;
+      wl.place(bx, by);
+      gL.appendChild(wl.el);
+      ext.push({ x: bx - wl.w / 2, y: by - wl.h / 2 }, { x: bx + wl.w / 2, y: by + wl.h / 2 });
+    }
+
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    ext.forEach(function (p) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); });
+    var pad = 12;
+    svg.setAttribute('viewBox', [fx(minX - pad), fx(minY - pad), fx(maxX - minX + 2 * pad), fx(maxY - minY + 2 * pad)].join(' '));
+
+    // текстовое описание для экранных читалок
+    var parts = [];
+    for (i = 0; i < n; i++) {
+      var at = [];
+      if (m.val[i].p) at.push('p'); if (m.val[i].q) at.push('q');
+      var sc3 = bitsOf(m.succ[i], n).map(worldTxt);
+      parts.push(worldTxt(i) + ': ' + (at.length ? 'истинны ' + at.join(', ') : 'атомы ложны') + '; переходы: ' + (sc3.length ? sc3.join(', ') : 'нет'));
+    }
+    svg.setAttribute('aria-label', 'Модель Крипке. ' + parts.join('. ') + '.');
+  }
+
+  function renderModelText() {
+    var m = state.model, n = m.n;
+    var cap = document.getElementById('caption');
+    cap.innerHTML = '';
+    cap.appendChild(document.createTextNode('Модель '));
+    cap.appendChild(mathSpan('M = \\langle W, R, V\\rangle', '<i>M</i> = ⟨<i>W</i>, <i>R</i>, <i>V</i>⟩', 'M = ⟨W, R, V⟩'));
+
+    var ul = document.getElementById('sets');
+    ul.innerHTML = '';
+    var i, j, all = (1 << n) - 1;
+
+    var liW = document.createElement('li');
+    liW.appendChild(mathSpan('W = ' + setTex(all, n), '<i>W</i> = ' + setHtml(all, n), 'W = ' + setTxt(all, n)));
+    ul.appendChild(liW);
+
+    // R как множество пар; каждая пара отдельным фрагментом, чтобы длинная строка переносилась
+    var pairs = [];
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) if (m.succ[i] >> j & 1) pairs.push([i, j]);
+    var liR = document.createElement('li');
+    if (!pairs.length) {
+      liR.appendChild(mathSpan('R = \\varnothing', '<i>R</i> = ∅', 'R = ∅'));
+    } else {
+      pairs.forEach(function (pr, idx) {
+        var first = idx === 0, last = idx === pairs.length - 1;
+        var tex = (first ? 'R = \\{' : '') + '\\langle ' + worldTex(pr[0]) + ', ' + worldTex(pr[1]) + '\\rangle' + (last ? '\\}' : ',');
+        var html = (first ? '<i>R</i> = {' : '') + '⟨' + worldHtml(pr[0]) + ', ' + worldHtml(pr[1]) + '⟩' + (last ? '}' : ',');
+        var txt = (first ? 'R = {' : '') + '⟨' + worldTxt(pr[0]) + ', ' + worldTxt(pr[1]) + '⟩' + (last ? '}' : ',');
+        if (!first) liR.appendChild(document.createTextNode(' '));
+        liR.appendChild(mathSpan(tex, html, txt));
+      });
+    }
+    ul.appendChild(liR);
+
+    ['p', 'q'].forEach(function (a) {
+      var mask = atomMask(m, a);
+      var li = document.createElement('li');
+      li.appendChild(mathSpan('V(' + a + ') = ' + setTex(mask, n),
+        '<i>V</i>(<i>' + a + '</i>) = ' + setHtml(mask, n),
+        'V(' + a + ') = ' + setTxt(mask, n)));
+      ul.appendChild(li);
+    });
+
+    var sem = document.getElementById('sem');
+    sem.innerHTML = '';
+    [
+      ["M, w \\models \\Box\\varphi \\iff \\forall w'\\,(wRw' \\Rightarrow M, w' \\models \\varphi)",
+        '<i>M</i>, <i>w</i> ⊨ □φ ⇔ ∀<i>w′</i> (<i>wRw′</i> ⇒ <i>M</i>, <i>w′</i> ⊨ φ)',
+        'M, w ⊨ □φ тогда и только тогда, когда для всех w′: если wRw′, то M, w′ ⊨ φ'],
+      ["M, w \\models \\Diamond\\varphi \\iff \\exists w'\\,(wRw' \\wedge M, w' \\models \\varphi)",
+        '<i>M</i>, <i>w</i> ⊨ ◇φ ⇔ ∃<i>w′</i> (<i>wRw′</i> ∧ <i>M</i>, <i>w′</i> ⊨ φ)',
+        'M, w ⊨ ◇φ тогда и только тогда, когда существует w′ такой, что wRw′ и M, w′ ⊨ φ']
+    ].forEach(function (row) {
+      var li = document.createElement('li');
+      li.appendChild(mathSpan(row[0], row[1], row[2]));
+      sem.appendChild(li);
+    });
+  }
+
+  var ICONS = '<svg class="i-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<svg class="i-cross" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+
+  function renderTable() {
+    var n = state.model.n;
+    var thead = document.querySelector('#grid thead'), tbody = document.querySelector('#grid tbody');
+    thead.innerHTML = ''; tbody.innerHTML = '';
+    document.getElementById('grid').style.setProperty('--cols', String(n + 1));
+
+    var hr = document.createElement('tr');
+    var th0 = document.createElement('th'); th0.className = 'fcol'; th0.scope = 'col'; th0.textContent = 'Формула';
+    hr.appendChild(th0);
+    for (var w = 0; w < n; w++) {
+      var th = document.createElement('th'); th.scope = 'col';
+      th.appendChild(mathSpan(worldTex(w), worldHtml(w), worldTxt(w)));
+      hr.appendChild(th);
+    }
+    var thN = document.createElement('th'); thN.scope = 'col'; thN.className = 'nonecol';
+    thN.innerHTML = '<span class="nonehead">ни в одном</span>';
+    thN.title = 'ни в одном из миров';
+    hr.appendChild(thN);
+    thead.appendChild(hr);
+
+    state.formulas.forEach(function (f, fi) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td'); td.className = 'fcol';
+      var head = document.createElement('div'); head.className = 'fhead';
+      var num = document.createElement('span'); num.className = 'num'; num.textContent = '(' + (fi + 1) + ')';
+      var fs = document.createElement('span'); fs.className = 'formula';
+      fs.appendChild(mathSpan(toTex(f, false), italicLetters(toTxt(f, false)), toTxt(f, false)));
+      head.appendChild(num); head.appendChild(fs);
+      td.appendChild(head);
+
+      var st = document.createElement('div'); st.className = 'rowstatus'; st.hidden = true;
+      var res = document.createElement('span'); res.className = 'res';
+      var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'linkbtn';
+      tg.setAttribute('aria-controls', 'bd-' + fi);
+      tg.addEventListener('click', function () {
+        state.open[fi] = !state.open[fi];
+        renderResults();
+      });
+      st.appendChild(res); st.appendChild(tg);
+      td.appendChild(st);
+      tr.appendChild(td);
+
+      // столбцы 0..n-1: миры, столбец n: «ни в одном из миров»
+      var inputs = [], labs = [];
+      for (var c2 = 0; c2 <= n; c2++) {
+        (function (c) {
+          var cell = document.createElement('td');
+          if (c === n) cell.className = 'nonecol';
+          var lab = document.createElement('label'); lab.className = 'cell';
+          var inp = document.createElement('input'); inp.type = 'checkbox';
+          inp.checked = state.marks[fi][c];
+          inp.setAttribute('aria-label', c === n
+            ? 'Формула ' + (fi + 1) + ' не истинна ни в одном из миров'
+            : 'Формула ' + (fi + 1) + ' истинна в мире ' + worldTxt(c));
+          inp.addEventListener('change', function () {
+            state.marks[fi][c] = inp.checked;
+            // «ни в одном» и отметки миров взаимно исключают друг друга
+            if (inp.checked) {
+              for (var o = 0; o <= n; o++) {
+                if (o === c || (c < n && o < n)) continue;
+                state.marks[fi][o] = false;
+                inputs[o].checked = false;
+              }
+            }
+            if (state.checked) {
+              labs.forEach(function (l) { l.classList.remove('r-hit', 'r-extra', 'r-miss'); });
+              var res0 = tr.querySelector('.res');
+              res0.textContent = 'изменено';
+              res0.className = 'res muted';
+              state.stale = true;
+              renderSummary();
+            }
+          });
+          var box = document.createElement('span'); box.className = 'box'; box.innerHTML = ICONS;
+          lab.appendChild(inp); lab.appendChild(box);
+          cell.appendChild(lab);
+          tr.appendChild(cell);
+          inputs.push(inp); labs.push(lab);
+        })(c2);
+      }
+      tbody.appendChild(tr);
+
+      var bd = document.createElement('tr'); bd.className = 'bd'; bd.id = 'bd-' + fi; bd.hidden = true;
+      var bdc = document.createElement('td'); bdc.colSpan = n + 2;
+      var intro = document.createElement('p'); intro.className = 'bd-intro'; intro.textContent = 'Множества миров, где истинны подформулы:';
+      var ul = document.createElement('ul'); ul.className = 'bd-list';
+      subformulas(f).forEach(function (g) {
+        var v = evalF(g, state.model);
+        var li = document.createElement('li');
+        li.appendChild(mathSpan('\\|' + toTex(g, false) + '\\| = ' + setTex(v, n),
+          '‖' + italicLetters(toTxt(g, false)) + '‖ = ' + setHtml(v, n),
+          '‖' + toTxt(g, false) + '‖ = ' + setTxt(v, n)));
+        ul.appendChild(li);
+      });
+      bdc.appendChild(intro); bdc.appendChild(ul);
+      bd.appendChild(bdc);
+      tbody.appendChild(bd);
+    });
+  }
+
+  function renderResults() {
+    var n = state.model.n;
+    var rows = document.querySelectorAll('#grid tbody tr:not(.bd)');
+    state.formulas.forEach(function (f, fi) {
+      var tr = rows[fi];
+      var labels = tr.querySelectorAll('label.cell');
+      var st = tr.querySelector('.rowstatus'), res = st.querySelector('.res'), tg = st.querySelector('.linkbtn');
+      var bd = document.getElementById('bd-' + fi);
+      var errs = 0;
+      for (var c = 0; c <= n; c++) {
+        var lab = labels[c];
+        lab.classList.remove('r-hit', 'r-extra', 'r-miss');
+        if (!state.checked) continue;
+        var t = cellTruth(fi, c), mk2 = state.marks[fi][c];
+        if (t && mk2) lab.classList.add('r-hit');
+        else if (!t && mk2) { lab.classList.add('r-extra'); errs++; }
+        else if (t && !mk2) { lab.classList.add('r-miss'); errs++; }
+      }
+      st.hidden = !state.checked;
+      if (state.checked) {
+        var answered = state.marks[fi].some(function (x) { return x; });
+        res.textContent = !answered ? 'нет ответа' : errs === 0 ? 'верно' : 'ошибок: ' + errs;
+        res.className = 'res ' + (answered && errs === 0 ? 'ok' : 'bad');
+        tg.textContent = state.open[fi] ? 'Скрыть разбор' : 'Разбор';
+        tg.setAttribute('aria-expanded', state.open[fi] ? 'true' : 'false');
+      }
+      bd.hidden = !(state.checked && state.open[fi]);
+    });
+    document.getElementById('legend').hidden = !state.checked;
+    renderSummary();
+  }
+
+  // истинностное значение клетки: миры 0..n-1, столбец n означает «ни в одном из миров»
+  function cellTruth(fi, c) {
+    return c < state.model.n ? !!(state.truth[fi] >> c & 1) : state.truth[fi] === 0;
+  }
+
+  function score() {
+    var n = state.model.n, good = 0, total = 0, rowsOk = 0;
+    state.formulas.forEach(function (f, fi) {
+      var ok = true;
+      for (var c = 0; c <= n; c++) {
+        total++;
+        if (cellTruth(fi, c) === state.marks[fi][c]) good++; else ok = false;
+      }
+      if (ok) rowsOk++;
+    });
+    return { good: good, total: total, rowsOk: rowsOk };
+  }
+
+  function renderSummary() {
+    var p = document.getElementById('summary');
+    if (!state.checked) { p.textContent = ''; return; }
+    if (state.stale) { p.textContent = 'Отметки изменены после проверки. Нажмите «Проверить» ещё раз.'; return; }
+    var s = score();
+    if (s.good === s.total) {
+      p.innerHTML = '<span class="ok">Все отметки верны.</span>';
+    } else {
+      p.textContent = 'Верно: ' + s.good + ' из ' + s.total + ' клеток. Формулы без ошибок: ' + s.rowsOk + ' из ' + state.formulas.length + '.';
+    }
+  }
+
+  function renderAll() {
+    drawModel();
+    renderModelText();
+    renderTable();
+    renderResults();
+    document.getElementById('variant').value = String(state.seed);
+  }
+
+  /* ================= Управление ================= */
+
+  function persist(seed) {
+    try { localStorage.setItem('kripke-variant', String(seed)); } catch (e) { /* хранилище недоступно */ }
+    try { history.replaceState(null, '', '#v=' + seed); } catch (e) { /* адрес не меняется */ }
+  }
+  function randomSeed(except) {
+    var s;
+    do { s = 1 + Math.floor(Math.random() * 99999); } while (s === except);
+    return s;
+  }
+  function initialSeed() {
+    var mm = /v=(\d{1,5})/.exec(location.hash || '');
+    if (mm && +mm[1] >= 1) return +mm[1];
+    try {
+      var s = parseInt(localStorage.getItem('kripke-variant'), 10);
+      if (s >= 1 && s <= 99999) return s;
+    } catch (e) { /* хранилище недоступно */ }
+    return randomSeed();
+  }
+
+  function load(seed) {
+    var rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
+    state.seed = seed;
+    state.model = genModel(rng);
+    state.layout = genLayout(state.model.n, rng);
+    state.formulas = genFormulas(state.model, rng);
+    state.truth = state.formulas.map(function (f) { return evalF(f, state.model); });
+    state.marks = state.formulas.map(function () { var a = []; for (var i = 0; i <= state.model.n; i++) a.push(false); return a; });
+    state.open = state.formulas.map(function () { return false; });
+    state.checked = false;
+    state.stale = false;
+    document.getElementById('variant-msg').textContent = '';
+    persist(seed);
+    renderAll();
+  }
+
+  document.getElementById('check').addEventListener('click', function () {
+    state.checked = true;
+    state.stale = false;
+    renderResults();
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    state.marks = state.marks.map(function (r) { return r.map(function () { return false; }); });
+    state.checked = false;
+    state.stale = false;
+    state.open = state.open.map(function () { return false; });
+    renderTable();
+    renderResults();
+  });
+  document.getElementById('new').addEventListener('click', function () { load(randomSeed(state.seed)); });
+
+  function openVariant() {
+    var raw = document.getElementById('variant').value.trim();
+    var v = /^\d{1,5}$/.test(raw) ? parseInt(raw, 10) : NaN;
+    if (!(v >= 1 && v <= 99999)) {
+      document.getElementById('variant-msg').textContent = 'Номер варианта: целое число от 1 до 99999.';
+      return;
+    }
+    load(v);
+  }
+  document.getElementById('open').addEventListener('click', openVariant);
+  document.getElementById('variant').addEventListener('keydown', function (e) { if (e.key === 'Enter') openVariant(); });
+
+  window.__onMathReady = function () {
+    if (mathOn) return;
+    mathOn = true;
+    if (state.model) renderAll();
+  };
+
+  load(initialSeed());
+})();
+</script>
+</body>
+</html>
