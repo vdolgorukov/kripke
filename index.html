@@ -71,6 +71,17 @@ h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:70
 .level{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 .level-label{color:var(--muted)}
 .level .seg button{letter-spacing:0;font-size:.92rem;padding:0 .75rem}
+.relbar{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:.1rem 1rem}
+.rel-label{color:var(--muted)}
+.rel-opts{display:flex;flex-wrap:wrap;gap:0 1rem}
+.chk{display:inline-flex;align-items:center;gap:.4rem;min-height:36px;cursor:pointer}
+.chk input{width:18px;height:18px;margin:0;accent-color:var(--accent);cursor:pointer}
+.chk input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chk input:disabled{cursor:default}
+.chk input:disabled + span{color:var(--muted);cursor:default}
+.logic{margin-left:auto;color:var(--muted);white-space:nowrap}
+.logic b{color:var(--text)}
+.relinfo{display:block;font-size:.9rem}
 
 .btn{
   font:inherit;font-size:.97rem;min-height:40px;padding:.4rem 1rem;border-radius:6px;cursor:pointer;
@@ -223,6 +234,18 @@ window.MathJax = {
     </div>
     <span class="spacer"></span>
     <button class="btn" id="new" type="button" data-i18n="newTask"></button>
+    <div class="relbar">
+      <span class="rel-label" id="rel-label" data-i18n="relLabel"></span>
+      <div class="rel-opts" role="group" aria-labelledby="rel-label">
+        <label class="chk"><input type="checkbox" data-rel="u"><span data-i18n="rel_u"></span></label>
+        <label class="chk"><input type="checkbox" data-rel="r"><span data-i18n="rel_r"></span></label>
+        <label class="chk"><input type="checkbox" data-rel="s"><span data-i18n="rel_s"></span></label>
+        <label class="chk"><input type="checkbox" data-rel="t"><span data-i18n="rel_t"></span></label>
+        <label class="chk"><input type="checkbox" data-rel="e"><span data-i18n="rel_e"></span></label>
+        <label class="chk"><input type="checkbox" data-rel="d"><span data-i18n="rel_d"></span></label>
+      </div>
+      <span class="logic" id="logic" aria-live="polite"></span>
+    </div>
   </div>
 
   <div class="workspace">
@@ -339,10 +362,113 @@ window.MathJax = {
     }
   };
 
+  // ----- свойства отношения достижимости -----
+  // u универсальное, r рефлексивное, s симметричное, t транзитивное, d серийное, e евклидово
+  var REL_ORDER = 'urstde';
+  function relNormalize(str) {
+    var P = {}, i;
+    for (i = 0; i < (str || '').length; i++) if (REL_ORDER.indexOf(str[i]) >= 0) P[str[i]] = true;
+    if (P.u) { P.r = P.s = P.t = P.d = P.e = true; }
+    // добавляем следствия выбранных свойств
+    var ch = true;
+    function set(k) { if (!P[k]) { P[k] = true; ch = true; } }
+    while (ch) {
+      ch = false;
+      if (P.r) set('d');
+      if (P.s && P.t) set('e');
+      if (P.s && P.e) set('t');
+      if (P.r && P.e) { set('s'); set('t'); }
+      if (P.s && P.t && P.d) set('r');
+    }
+    return P;
+  }
+  function relKey(P) { return REL_ORDER.split('').filter(function (c) { return P[c]; }).join(''); }
+  var LOGICS = {
+    '': 'K', d: 'D', rd: 'T', s: 'KB', t: 'K4', e: 'K5', sd: 'KDB', td: 'D4', de: 'D5', te: 'K45',
+    tde: 'KD45', ste: 'KB5', rsd: 'B', rtd: 'S4', rstde: 'S5', urstde: 'S5'
+  };
+  // замыкание отношения по свойствам
+  function closeRel(succ, n, P) {
+    var full = (1 << n) - 1, i, j, ch = true;
+    if (P.u) { for (i = 0; i < n; i++) succ[i] = full; return; }
+    while (ch) {
+      ch = false;
+      for (i = 0; i < n; i++) {
+        var old = succ[i];
+        if (P.r) succ[i] |= 1 << i;
+        for (j = 0; j < n; j++) {
+          if (!(succ[i] >> j & 1)) continue;
+          if (P.t) succ[i] |= succ[j];
+          if (P.s && !(succ[j] >> i & 1)) { succ[j] |= 1 << i; ch = true; }
+          // евклидовость: wRj и wRk влекут jRk
+          if (P.e && (succ[j] | succ[i]) !== succ[j]) { succ[j] |= succ[i]; ch = true; }
+        }
+        if (succ[i] !== old) ch = true;
+      }
+    }
+  }
+  function relHolds(succ, n, P) {
+    var full = (1 << n) - 1, i, j, k;
+    for (i = 0; i < n; i++) {
+      if (P.u && succ[i] !== full) return false;
+      if (P.r && !(succ[i] >> i & 1)) return false;
+      if (P.d && !succ[i]) return false;
+      for (j = 0; j < n; j++) {
+        if (!(succ[i] >> j & 1)) continue;
+        if (P.s && !(succ[j] >> i & 1)) return false;
+        if (P.t && (succ[i] | succ[j]) !== succ[i]) return false;
+        if (P.e && (succ[j] | succ[i]) !== succ[j]) return false;
+      }
+    }
+    return true;
+  }
+  // больше рёбер рисунок не вмещает
+  var REL_MAX_EDGES = { 3: 6, 4: 8, 5: 10 };
+
+  function genModelRel(rng, cfg, n, names, tooFlat, P) {
+    var full = (1 << n) - 1, last = null, i, j;
+    for (var tries = 0; tries < 20000; tries++) {
+      var val = [];
+      for (i = 0; i < n; i++) {
+        var v0 = {};
+        names.forEach(function (a) { v0[a] = rng() < ATOM_P[a]; });
+        val.push(v0);
+      }
+      if (tooFlat(val)) continue;
+      var succ = [], pEdge = cfg.pEdge[n] * 0.75;
+      for (i = 0; i < n; i++) {
+        succ.push(0);
+        for (j = 0; j < n; j++) {
+          if (i === j) { if (!P.r && rng() < 0.12) succ[i] |= 1 << j; }
+          else if (rng() < pEdge) succ[i] |= 1 << j;
+        }
+      }
+      if (P.d) {
+        for (i = 0; i < n; i++) if (!succ[i]) {
+          j = Math.floor(rng() * (n - 1)); if (j >= i) j++;
+          succ[i] |= 1 << j;
+        }
+      }
+      closeRel(succ, n, P);
+      var model = { n: n, val: val, succ: succ, rel: relKey(P) };
+      if (names.length > 2) model.atoms = names;
+      last = model;
+      if (P.u) return model;
+      var nonLoop = 0;
+      for (i = 0; i < n; i++) nonLoop += popcount(succ[i] & ~(1 << i));
+      if (nonLoop < n - 1 || nonLoop > REL_MAX_EDGES[n]) continue;
+      if (succ.every(function (x) { return x === full; })) continue;
+      // связная модель эквивалентности была бы универсальной, поэтому для неё допускаем несколько компонент
+      if (!(P.s && P.t) && !weaklyConnected(n, succ)) continue;
+      return model;
+    }
+    return last;
+  }
+
   // вероятность истинности переменной в мире
   var ATOM_P = { p: 0.5, q: 0.45, r: 0.45, s: 0.4 };
 
-  function genModel(rng, level) {
+  function genModel(rng, level, rel) {
     var cfg = LEVELS[level || 'medium'];
     var n = cfg.worlds(rng);
     var wantDeadEnd = rng() < 0.75;
@@ -355,6 +481,7 @@ window.MathJax = {
         return c === 0 || c === n;
       });
     };
+    if (rel) return genModelRel(rng, cfg, n, names, tooFlat, relNormalize(rel));
     for (var tries = 0; tries < 20000; tries++) {
       var val = [], i, j;
       for (i = 0; i < n; i++) {
@@ -675,7 +802,7 @@ window.MathJax = {
 
   var API = {
     mulberry32: mulberry32, genModel: genModel, genLayout: genLayout, genFormulas: genFormulas,
-    evalF: evalF, atomsOf: atomsOf, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
+    evalF: evalF, atomsOf: atomsOf, relNormalize: relNormalize, relKey: relKey, relHolds: relHolds, LOGICS: LOGICS, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
     LAYOUTS: LAYOUTS, LEVELS: LEVELS, PICTURE_MODEL: PICTURE_MODEL
   };
   if (typeof document === 'undefined') {
@@ -691,6 +818,9 @@ window.MathJax = {
       lead: 'For each formula, mark the worlds where it is true (or \u201cnone\u201d). Check a formula with the \u201cCheck\u201d button below it, or check all of them at once. After checking, open the breakdown to see the sets of worlds where the subformulas are true.',
       variant: 'Variant', open: 'Open', newTask: 'New task',
       level: 'Difficulty', easy: 'Easy', medium: 'Medium', hard: 'Hard',
+      relLabel: 'Accessibility is', rel_u: 'universal (S5)', rel_r: 'reflexive', rel_s: 'symmetric',
+      rel_t: 'transitive', rel_e: 'euclidean', rel_d: 'serial',
+      relImplied: 'follows from the selected properties', logic: 'Logic', relAll: 'R = W \u00d7 W',
       secModel: 'Model', secTask: 'Task', sets: 'Model as sets',
       checkAll: 'Check all', reset: 'Clear marks',
       lgHit: 'correct mark', lgExtra: 'extra mark: the formula is false here', lgMiss: 'missed: the formula is true here',
@@ -717,6 +847,9 @@ window.MathJax = {
       lead: 'Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и проверьте её кнопкой «Проверить» под формулой или все формулы сразу. После проверки можно открыть разбор: множества миров, где истинны подформулы.',
       variant: 'Вариант', open: 'Открыть', newTask: 'Новое задание',
       level: 'Сложность', easy: 'Лёгкое', medium: 'Среднее', hard: 'Сложное',
+      relLabel: 'Отношение достижимости', rel_u: 'универсальное (S5)', rel_r: 'рефлексивное', rel_s: 'симметричное',
+      rel_t: 'транзитивное', rel_e: 'евклидово', rel_d: 'серийное',
+      relImplied: 'следует из выбранных свойств', logic: 'Логика', relAll: 'R = W × W',
       secModel: 'Модель', secTask: 'Задание', sets: 'Модель в виде множеств',
       checkAll: 'Проверить все', reset: 'Сбросить отметки',
       lgHit: 'верная отметка', lgExtra: 'лишняя отметка: формула здесь ложна', lgMiss: 'пропущено: формула здесь истинна',
@@ -741,6 +874,7 @@ window.MathJax = {
   };
   var lang = 'en';
   var level = 'medium';
+  var relSel = '';   // свойства, отмеченные пользователем (буквы из REL_ORDER)
   function T(k) {
     var v = I18N[lang][k];
     return typeof v === 'function' ? v.apply(null, Array.prototype.slice.call(arguments, 1)) : v;
@@ -766,6 +900,17 @@ window.MathJax = {
     } catch (e) { /* хранилище недоступно */ }
     return 'medium';
   }
+  function cleanRel(str) {
+    return REL_ORDER.split('').filter(function (c) { return (str || '').indexOf(c) >= 0; }).join('');
+  }
+  function initialRel() {
+    var h = location.hash || '';
+    var mm = /rel=([a-z]+)/.exec(h);
+    if (mm) return cleanRel(mm[1]);
+    if (/v=\d/.test(h)) return '';
+    try { return cleanRel(localStorage.getItem('kripke-rel')); } catch (e) { return ''; }
+  }
+  function relEffectiveKey() { return relSel ? relKey(relNormalize(relSel)) : ''; }
   // статичные тексты страницы
   function applyStatic() {
     document.documentElement.lang = lang;
@@ -778,6 +923,18 @@ window.MathJax = {
     Array.prototype.forEach.call(document.querySelectorAll('[data-level]'), function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-level') === level ? 'true' : 'false');
     });
+    // выбранные свойства и их следствия (следствия отмечены и заблокированы)
+    var eff = relNormalize(relSel);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rel]'), function (inp) {
+      var c = inp.getAttribute('data-rel'), implied = !!eff[c] && relSel.indexOf(c) < 0;
+      inp.checked = !!eff[c];
+      inp.disabled = implied;
+      inp.parentNode.title = implied ? T('relImplied') : '';
+    });
+    var lg = document.getElementById('logic');
+    lg.textContent = T('logic') + ': ';
+    var b = document.createElement('b'); b.textContent = LOGICS[relEffectiveKey()] || '';
+    lg.appendChild(b);
   }
 
   var SVGNS = 'http://www.w3.org/2000/svg';
@@ -900,6 +1057,9 @@ window.MathJax = {
     var marker = svgEl('marker', { id: 'kripke-ah', viewBox: '-6 -5 11 10', refX: 0, refY: 0, markerWidth: 11, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto', overflow: 'visible' });
     marker.appendChild(svgEl('path', { d: 'M4,0 L-5.2,-3.7 L-2.8,0 L-5.2,3.7 Z', 'class': 'ah' }));
     defs.appendChild(marker);
+    var marker2 = svgEl('marker', { id: 'kripke-ah-start', viewBox: '-6 -5 11 10', refX: 0, refY: 0, markerWidth: 11, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto-start-reverse', overflow: 'visible' });
+    marker2.appendChild(svgEl('path', { d: 'M4,0 L-5.2,-3.7 L-2.8,0 L-5.2,3.7 Z', 'class': 'ah' }));
+    defs.appendChild(marker2);
     svg.appendChild(defs);
     var gE = svgEl('g'), gN = svgEl('g'), gL = svgEl('g');
     svg.appendChild(gE); svg.appendChild(gN); svg.appendChild(gL);
@@ -913,10 +1073,13 @@ window.MathJax = {
     // рёбра между разными мирами
     for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
       if (i === j || !(m.succ[i] >> j & 1)) continue;
+      // в моделях со свойствами пара wRv, vRw рисуется одной линией с двумя стрелками
+      var both = !!(m.succ[j] >> i & 1), merge = both && !!m.rel;
+      if (merge && j < i) continue;
       var pi = pos[i], pj = pos[j];
       var th = Math.atan2(pj.y - pi.y, pj.x - pi.x), d = Math.hypot(pj.x - pi.x, pj.y - pi.y);
       var bend = 0;
-      if (m.succ[j] >> i & 1) bend = 0.3;
+      if (both && !merge) bend = 0.3;
       else {
         for (k = 0; k < n; k++) {
           if (k === i || k === j) continue;
@@ -930,18 +1093,21 @@ window.MathJax = {
       var dAttr;
       if (bend === 0) {
         var S0 = add(pi, U(th), R), S3 = add(pj, U(th), -R), SE = add(S3, U(th), -ARROW);
+        if (merge) S0 = add(S0, U(th), ARROW);
         dAttr = 'M' + fx(S0.x) + ',' + fx(S0.y) + ' L' + fx(SE.x) + ',' + fx(SE.y);
         occ[i].push(th); occ[j].push(th + Math.PI);
       } else {
         var a0 = th - bend, a1 = th + Math.PI + bend, kk = d * 0.28;
         var P0 = add(pi, U(a0), R), P3 = add(pj, U(a1), R);
         var P1 = add(P0, U(a0), kk), P2 = add(P3, U(a1), kk);
-        var E = towards(P2, P3, ARROW);
-        dAttr = 'M' + fx(P0.x) + ',' + fx(P0.y) + ' C' + fx(P1.x) + ',' + fx(P1.y) + ' ' + fx(P2.x) + ',' + fx(P2.y) + ' ' + fx(E.x) + ',' + fx(E.y);
+        var E = towards(P2, P3, ARROW), B0 = merge ? towards(P1, P0, ARROW) : P0;
+        dAttr = 'M' + fx(B0.x) + ',' + fx(B0.y) + ' C' + fx(P1.x) + ',' + fx(P1.y) + ' ' + fx(P2.x) + ',' + fx(P2.y) + ' ' + fx(E.x) + ',' + fx(E.y);
         occ[i].push(a0); occ[j].push(a1);
         samples(P0, P1, P2, P3);
       }
-      gE.appendChild(svgEl('path', { d: dAttr, 'class': 'edge', 'marker-end': 'url(#kripke-ah)' }));
+      var ea = { d: dAttr, 'class': 'edge', 'marker-end': 'url(#kripke-ah)' };
+      if (merge) ea['marker-start'] = 'url(#kripke-ah-start)';
+      gE.appendChild(svgEl('path', ea));
     }
 
     // петли: в сторону наибольшего свободного угла, по возможности наружу
@@ -1027,6 +1193,14 @@ window.MathJax = {
     cap.innerHTML = '';
     cap.appendChild(document.createTextNode(T('caption')));
     cap.appendChild(mathSpan('M = \\langle W, R, V\\rangle', '<i>M</i> = ⟨<i>W</i>, <i>R</i>, <i>V</i>⟩', 'M = ⟨W, R, V⟩'));
+    if (m.rel) {
+      var ri = document.createElement('span'); ri.className = 'relinfo';
+      var P = relNormalize(m.rel);
+      ri.textContent = P.u ? T('relAll') + ' · ' + T('logic') + ' S5'
+        : 'R: ' + 'rstde'.split('').filter(function (c) { return P[c]; }).map(function (c) { return T('rel_' + c); }).join(', ') +
+          ' · ' + T('logic') + ' ' + (LOGICS[m.rel] || '');
+      cap.appendChild(ri);
+    }
 
     var ul = document.getElementById('sets');
     ul.innerHTML = '';
@@ -1269,7 +1443,7 @@ window.MathJax = {
 
   function persist(seed) {
     try { localStorage.setItem('kripke-variant', String(seed)); } catch (e) { /* хранилище недоступно */ }
-    try { history.replaceState(null, '', '#v=' + seed + (level === 'medium' ? '' : '&d=' + level) + (lang === 'en' ? '' : '&lang=' + lang)); } catch (e) { /* адрес не меняется */ }
+    try { history.replaceState(null, '', '#v=' + seed + (level === 'medium' ? '' : '&d=' + level) + (relSel ? '&rel=' + relSel : '') + (lang === 'en' ? '' : '&lang=' + lang)); } catch (e) { /* адрес не меняется */ }
   }
   function randomSeed(except) {
     var s;
@@ -1289,7 +1463,7 @@ window.MathJax = {
   function load(seed) {
     var rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
     state.seed = seed;
-    state.model = genModel(rng, level);
+    state.model = genModel(rng, level, relEffectiveKey());
     state.layout = genLayout(state.model.n, rng);
     state.formulas = genFormulas(state.model, rng, level);
     state.truth = state.formulas.map(function (f) { return evalF(f, state.model); });
@@ -1357,8 +1531,22 @@ window.MathJax = {
     b.addEventListener('click', function () { setLevel(b.getAttribute('data-level')); });
   });
 
+  // свойства отношения: тот же номер варианта, модель строится заново
+  Array.prototype.forEach.call(document.querySelectorAll('[data-rel]'), function (inp) {
+    inp.addEventListener('change', function () {
+      var c = inp.getAttribute('data-rel');
+      relSel = cleanRel(inp.checked ? relSel + c : relSel.replace(c, ''));
+      // универсальное отношение влечёт все остальные свойства
+      if (relSel.indexOf('u') >= 0) relSel = 'u';
+      try { localStorage.setItem('kripke-rel', relSel); } catch (e) { /* хранилище недоступно */ }
+      applyStatic();
+      load(state.seed);
+    });
+  });
+
   lang = initialLang();
   level = initialLevel();
+  relSel = initialRel();
   applyStatic();
   load(initialSeed());
 })();
