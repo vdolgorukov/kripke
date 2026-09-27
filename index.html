@@ -66,6 +66,7 @@ h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:70
   border:1.5px solid var(--accent);background:transparent;color:var(--accent);
 }
 .btn:hover{background:var(--tint)}
+.btn.sm{min-height:32px;padding:.1rem .75rem;font-size:.88rem}
 .btn.primary{background:var(--accent);color:var(--on-accent)}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn:focus-visible,.linkbtn:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -104,8 +105,8 @@ table.grid{border-collapse:collapse;width:100%;min-width:330px}
 .grid .nonecol{border-left:1px solid var(--rule);padding-left:.55rem}
 .nonehead{display:inline-block;font-size:.8rem;line-height:1.15;max-width:5.2em}
 .res.muted{color:var(--muted)}
-.rowstatus{display:flex;gap:.9rem;align-items:baseline;margin:.2rem 0 0 2.5em;font-size:.9rem}
-.rowstatus[hidden]{display:none}
+.rowstatus{display:flex;gap:.9rem;align-items:center;min-height:32px;margin:.3rem 0 0 2.5em;font-size:.9rem}
+.rowstatus [hidden]{display:none}
 .res.ok{color:var(--ok)}
 .res.bad{color:var(--err)}
 .linkbtn{font:inherit;font-size:inherit;background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
@@ -188,7 +189,7 @@ window.MathJax = {
 <main>
   <header>
     <h1>Истинность формул в модели Крипке</h1>
-    <p class="lead">Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и нажмите «Проверить». После проверки можно открыть разбор: множества миров, где истинны подформулы.</p>
+    <p class="lead">Для каждой формулы отметьте миры, в которых она истинна (или вариант «ни в одном»), и проверьте её кнопкой «Проверить» под формулой или все формулы сразу. После проверки можно открыть разбор: множества миров, где истинны подформулы.</p>
   </header>
 
   <div class="toolbar">
@@ -222,7 +223,7 @@ window.MathJax = {
         </table>
       </div>
       <div class="actions">
-        <button class="btn primary" id="check" type="button">Проверить</button>
+        <button class="btn primary" id="check" type="button">Проверить все</button>
         <button class="btn" id="reset" type="button">Сбросить отметки</button>
       </div>
       <p id="summary" aria-live="polite"></p>
@@ -544,7 +545,7 @@ window.MathJax = {
   var SVGNS = 'http://www.w3.org/2000/svg';
   var mathOn = !!window.__mjReady;
 
-  var state = { seed: 0, model: null, layout: null, formulas: [], truth: [], marks: [], checked: false, stale: false, open: [] };
+  var state = { seed: 0, model: null, layout: null, formulas: [], truth: [], marks: [], checked: [], open: [] };
 
   function svgEl(tag, attrs) {
     var e = document.createElementNS(SVGNS, tag);
@@ -868,7 +869,14 @@ window.MathJax = {
       head.appendChild(num); head.appendChild(fs);
       td.appendChild(head);
 
-      var st = document.createElement('div'); st.className = 'rowstatus'; st.hidden = true;
+      var st = document.createElement('div'); st.className = 'rowstatus';
+      var chk = document.createElement('button'); chk.type = 'button'; chk.className = 'btn sm rowcheck';
+      chk.textContent = 'Проверить';
+      chk.setAttribute('aria-label', 'Проверить формулу ' + (fi + 1));
+      chk.addEventListener('click', function () {
+        state.checked[fi] = true;
+        renderResults();
+      });
       var res = document.createElement('span'); res.className = 'res';
       var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'linkbtn';
       tg.setAttribute('aria-controls', 'bd-' + fi);
@@ -876,7 +884,7 @@ window.MathJax = {
         state.open[fi] = !state.open[fi];
         renderResults();
       });
-      st.appendChild(res); st.appendChild(tg);
+      st.appendChild(chk); st.appendChild(res); st.appendChild(tg);
       td.appendChild(st);
       tr.appendChild(td);
 
@@ -902,13 +910,11 @@ window.MathJax = {
                 inputs[o].checked = false;
               }
             }
-            if (state.checked) {
-              labs.forEach(function (l) { l.classList.remove('r-hit', 'r-extra', 'r-miss'); });
-              var res0 = tr.querySelector('.res');
-              res0.textContent = 'изменено';
-              res0.className = 'res muted';
-              state.stale = true;
-              renderSummary();
+            // после изменения отметок строку нужно проверить заново
+            if (state.checked[fi]) {
+              state.checked[fi] = false;
+              state.open[fi] = false;
+              renderResults();
             }
           });
           var box = document.createElement('span'); box.className = 'box'; box.innerHTML = ICONS;
@@ -945,28 +951,32 @@ window.MathJax = {
       var tr = rows[fi];
       var labels = tr.querySelectorAll('label.cell');
       var st = tr.querySelector('.rowstatus'), res = st.querySelector('.res'), tg = st.querySelector('.linkbtn');
+      var chk = st.querySelector('.rowcheck');
       var bd = document.getElementById('bd-' + fi);
+      var done = state.checked[fi];
       var errs = 0;
       for (var c = 0; c <= n; c++) {
         var lab = labels[c];
         lab.classList.remove('r-hit', 'r-extra', 'r-miss');
-        if (!state.checked) continue;
+        if (!done) continue;
         var t = cellTruth(fi, c), mk2 = state.marks[fi][c];
         if (t && mk2) lab.classList.add('r-hit');
         else if (!t && mk2) { lab.classList.add('r-extra'); errs++; }
         else if (t && !mk2) { lab.classList.add('r-miss'); errs++; }
       }
-      st.hidden = !state.checked;
-      if (state.checked) {
+      chk.hidden = done;
+      res.hidden = !done;
+      tg.hidden = !done;
+      if (done) {
         var answered = state.marks[fi].some(function (x) { return x; });
         res.textContent = !answered ? 'нет ответа' : errs === 0 ? 'верно' : 'ошибок: ' + errs;
         res.className = 'res ' + (answered && errs === 0 ? 'ok' : 'bad');
         tg.textContent = state.open[fi] ? 'Скрыть разбор' : 'Разбор';
         tg.setAttribute('aria-expanded', state.open[fi] ? 'true' : 'false');
       }
-      bd.hidden = !(state.checked && state.open[fi]);
+      bd.hidden = !(done && state.open[fi]);
     });
-    document.getElementById('legend').hidden = !state.checked;
+    document.getElementById('legend').hidden = !state.checked.some(Boolean);
     renderSummary();
   }
 
@@ -978,6 +988,7 @@ window.MathJax = {
   function score() {
     var n = state.model.n, good = 0, total = 0, rowsOk = 0;
     state.formulas.forEach(function (f, fi) {
+      if (!state.checked[fi]) return;
       var ok = true;
       for (var c = 0; c <= n; c++) {
         total++;
@@ -990,10 +1001,12 @@ window.MathJax = {
 
   function renderSummary() {
     var p = document.getElementById('summary');
-    if (!state.checked) { p.textContent = ''; return; }
-    if (state.stale) { p.textContent = 'Отметки изменены после проверки. Нажмите «Проверить» ещё раз.'; return; }
+    var done = state.checked.filter(Boolean).length, all = state.formulas.length;
+    if (!done) { p.textContent = ''; return; }
     var s = score();
-    if (s.good === s.total) {
+    if (done < all) {
+      p.textContent = 'Проверено формул: ' + done + ' из ' + all + '. Без ошибок: ' + s.rowsOk + ' из ' + done + '.';
+    } else if (s.good === s.total) {
       p.innerHTML = '<span class="ok">Все отметки верны.</span>';
     } else {
       p.textContent = 'Верно: ' + s.good + ' из ' + s.total + ' клеток. Формулы без ошибок: ' + s.rowsOk + ' из ' + state.formulas.length + '.';
@@ -1038,22 +1051,19 @@ window.MathJax = {
     state.truth = state.formulas.map(function (f) { return evalF(f, state.model); });
     state.marks = state.formulas.map(function () { var a = []; for (var i = 0; i <= state.model.n; i++) a.push(false); return a; });
     state.open = state.formulas.map(function () { return false; });
-    state.checked = false;
-    state.stale = false;
+    state.checked = state.formulas.map(function () { return false; });
     document.getElementById('variant-msg').textContent = '';
     persist(seed);
     renderAll();
   }
 
   document.getElementById('check').addEventListener('click', function () {
-    state.checked = true;
-    state.stale = false;
+    state.checked = state.checked.map(function () { return true; });
     renderResults();
   });
   document.getElementById('reset').addEventListener('click', function () {
     state.marks = state.marks.map(function (r) { return r.map(function () { return false; }); });
-    state.checked = false;
-    state.stale = false;
+    state.checked = state.checked.map(function () { return false; });
     state.open = state.open.map(function () { return false; });
     renderTable();
     renderResults();
