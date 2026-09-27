@@ -82,6 +82,12 @@ h1{font-size:clamp(1.55rem,1.2rem + 1.4vw,2.1rem);line-height:1.2;font-weight:70
 .logic{margin-left:auto;color:var(--muted);white-space:nowrap}
 .logic b{color:var(--text)}
 .relinfo{display:block;font-size:.9rem}
+.implied{display:block;font-size:.95rem;color:var(--text);font-style:italic}
+.viewopts{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:.75rem}
+.btn.sm.toggle{min-height:36px}
+.btn.toggle[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:disabled:hover{background:transparent}
 
 .btn{
   font:inherit;font-size:.97rem;min-height:40px;padding:.4rem 1rem;border-radius:6px;cursor:pointer;
@@ -254,6 +260,10 @@ window.MathJax = {
         <svg id="kripke" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
         <figcaption id="caption"></figcaption>
       </figure>
+      <div class="viewopts">
+        <button type="button" class="btn sm toggle" id="hide-refl" aria-pressed="false" data-i18n="hideRefl"></button>
+        <button type="button" class="btn sm toggle" id="hide-trans" aria-pressed="false" data-i18n="hideTrans"></button>
+      </div>
       <details>
         <summary data-i18n="sets"></summary>
         <ul class="setlist" id="sets"></ul>
@@ -422,6 +432,38 @@ window.MathJax = {
     }
     return true;
   }
+  // Стрелки для рисунка. hideRefl убирает петли, hideTrans убирает стрелки,
+  // которые восстанавливаются по транзитивности из оставшихся. Само отношение не меняется.
+  function reachable(sh, n, a, b) {
+    var seen = 0, stack = [a];
+    while (stack.length) {
+      var x = stack.pop();
+      for (var y = 0; y < n; y++) {
+        if (y === x || !(sh[x] >> y & 1) || (seen >> y & 1)) continue;
+        if (y === b) return true;
+        seen |= 1 << y; stack.push(y);
+      }
+    }
+    return false;
+  }
+  function displaySucc(succ, n, hideRefl, hideTrans) {
+    var sh = succ.slice(), i, k;
+    if (hideRefl) for (i = 0; i < n; i++) sh[i] &= ~(1 << i);
+    if (hideTrans) {
+      // сначала пробуем убрать односторонние стрелки, чтобы пары туда-обратно сохранялись
+      var order = [];
+      for (i = 0; i < n; i++) for (k = 0; k < n; k++) {
+        if (i !== k && (sh[i] >> k & 1)) order.push([i, k, (sh[k] >> i & 1) ? 1 : 0, order.length]);
+      }
+      order.sort(function (x, y) { return x[2] - y[2] || x[3] - y[3]; });
+      order.forEach(function (e) {
+        sh[e[0]] &= ~(1 << e[1]);
+        if (!reachable(sh, n, e[0], e[1])) sh[e[0]] |= 1 << e[1];
+      });
+    }
+    return sh;
+  }
+
   // больше рёбер рисунок не вмещает
   var REL_MAX_EDGES = { 3: 6, 4: 8, 5: 10 };
 
@@ -802,7 +844,7 @@ window.MathJax = {
 
   var API = {
     mulberry32: mulberry32, genModel: genModel, genLayout: genLayout, genFormulas: genFormulas,
-    evalF: evalF, atomsOf: atomsOf, relNormalize: relNormalize, relKey: relKey, relHolds: relHolds, LOGICS: LOGICS, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
+    evalF: evalF, atomsOf: atomsOf, displaySucc: displaySucc, relNormalize: relNormalize, relKey: relKey, relHolds: relHolds, LOGICS: LOGICS, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
     LAYOUTS: LAYOUTS, LEVELS: LEVELS, PICTURE_MODEL: PICTURE_MODEL
   };
   if (typeof document === 'undefined') {
@@ -821,6 +863,9 @@ window.MathJax = {
       relLabel: 'Accessibility is', rel_u: 'universal (S5)', rel_r: 'reflexive', rel_s: 'symmetric',
       rel_t: 'transitive', rel_e: 'euclidean', rel_d: 'serial',
       relImplied: 'follows from the selected properties', logic: 'Logic', relAll: 'R = W \u00d7 W',
+      hideRefl: 'Hide reflexive arrows', hideTrans: 'Hide transitive arrows',
+      impliedRefl: 'Reflexive arrows are implied', impliedTrans: 'Transitive arrows are implied',
+      needRefl: 'Available when the relation is reflexive', needTrans: 'Available when the relation is transitive',
       secModel: 'Model', secTask: 'Task', sets: 'Model as sets',
       checkAll: 'Check all', reset: 'Clear marks',
       lgHit: 'correct mark', lgExtra: 'extra mark: the formula is false here', lgMiss: 'missed: the formula is true here',
@@ -850,6 +895,9 @@ window.MathJax = {
       relLabel: 'Отношение достижимости', rel_u: 'универсальное (S5)', rel_r: 'рефлексивное', rel_s: 'симметричное',
       rel_t: 'транзитивное', rel_e: 'евклидово', rel_d: 'сериальное',
       relImplied: 'следует из выбранных свойств', logic: 'Логика', relAll: 'R = W × W',
+      hideRefl: 'Не отображать рефлексивные стрелки', hideTrans: 'Не отображать транзитивные стрелки',
+      impliedRefl: 'Рефлексивные стрелки подразумеваются', impliedTrans: 'Транзитивные стрелки подразумеваются',
+      needRefl: 'Доступно, если отношение рефлексивно', needTrans: 'Доступно, если отношение транзитивно',
       secModel: 'Модель', secTask: 'Задание', sets: 'Модель в виде множеств',
       checkAll: 'Проверить все', reset: 'Сбросить отметки',
       lgHit: 'верная отметка', lgExtra: 'лишняя отметка: формула здесь ложна', lgMiss: 'пропущено: формула здесь истинна',
@@ -875,6 +923,14 @@ window.MathJax = {
   var lang = 'en';
   var level = 'medium';
   var relSel = '';   // свойства, отмеченные пользователем (буквы из REL_ORDER)
+  // скрытие стрелок на рисунке (только вид; отношение и проверка не меняются)
+  var view = { hideRefl: false, hideTrans: false };
+  function viewApplied(m) {
+    return {
+      refl: view.hideRefl && relHolds(m.succ, m.n, { r: true }),
+      trans: view.hideTrans && relHolds(m.succ, m.n, { t: true })
+    };
+  }
   function T(k) {
     var v = I18N[lang][k];
     return typeof v === 'function' ? v.apply(null, Array.prototype.slice.call(arguments, 1)) : v;
@@ -1050,6 +1106,7 @@ window.MathJax = {
 
   function drawModel() {
     var m = state.model, pos = state.layout, n = m.n, R = 34, ARROW = 4;
+    var va = viewApplied(m), sh = displaySucc(m.succ, n, va.refl, va.trans);
     var svg = document.getElementById('kripke');
     while (svg.firstChild) svg.removeChild(svg.firstChild);
 
@@ -1072,9 +1129,9 @@ window.MathJax = {
 
     // рёбра между разными мирами
     for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
-      if (i === j || !(m.succ[i] >> j & 1)) continue;
+      if (i === j || !(sh[i] >> j & 1)) continue;
       // в моделях со свойствами пара wRv, vRw рисуется одной линией с двумя стрелками
-      var both = !!(m.succ[j] >> i & 1), merge = both && !!m.rel;
+      var both = !!(sh[j] >> i & 1), merge = both && !!m.rel;
       if (merge && j < i) continue;
       var pi = pos[i], pj = pos[j];
       var th = Math.atan2(pj.y - pi.y, pj.x - pi.x), d = Math.hypot(pj.x - pi.x, pj.y - pi.y);
@@ -1105,14 +1162,15 @@ window.MathJax = {
         occ[i].push(a0); occ[j].push(a1);
         samples(P0, P1, P2, P3);
       }
-      var ea = { d: dAttr, 'class': 'edge', 'marker-end': 'url(#kripke-ah)' };
+      var ea = { d: dAttr, 'class': 'edge', 'marker-end': 'url(#kripke-ah)', 'data-from': i, 'data-to': j };
+      if (merge) ea['data-both'] = '1';
       if (merge) ea['marker-start'] = 'url(#kripke-ah-start)';
       gE.appendChild(svgEl('path', ea));
     }
 
     // петли: в сторону наибольшего свободного угла, по возможности наружу
     for (i = 0; i < n; i++) {
-      if (!(m.succ[i] >> i & 1)) continue;
+      if (!(sh[i] >> i & 1)) continue;
       var outA = Math.atan2(pos[i].y - cy, pos[i].x - cx);
       var bestA = 0, bestS = -1e9;
       for (var s = 0; s < 24; s++) {
@@ -1126,7 +1184,7 @@ window.MathJax = {
       var LE = towards(L2, L3, ARROW);
       gE.appendChild(svgEl('path', {
         d: 'M' + fx(L0.x) + ',' + fx(L0.y) + ' C' + fx(L1.x) + ',' + fx(L1.y) + ' ' + fx(L2.x) + ',' + fx(L2.y) + ' ' + fx(LE.x) + ',' + fx(LE.y),
-        'class': 'edge', 'marker-end': 'url(#kripke-ah)'
+        'class': 'edge', 'marker-end': 'url(#kripke-ah)', 'data-from': i, 'data-to': i
       }));
       occ[i].push(bestA - 0.6, bestA, bestA + 0.6);
       samples(L0, L1, L2, L3);
@@ -1187,6 +1245,16 @@ window.MathJax = {
     svg.setAttribute('aria-label', T('ariaModel') + parts.join('. ') + '.');
   }
 
+  function renderViewButtons() {
+    var m = state.model;
+    [['hide-refl', 'hideRefl', { r: true }, 'needRefl'], ['hide-trans', 'hideTrans', { t: true }, 'needTrans']].forEach(function (x) {
+      var b = document.getElementById(x[0]), can = relHolds(m.succ, m.n, x[2]);
+      b.disabled = !can;
+      b.setAttribute('aria-pressed', can && view[x[1]] ? 'true' : 'false');
+      b.title = can ? '' : T(x[3]);
+    });
+  }
+
   function renderModelText() {
     var m = state.model, n = m.n;
     var cap = document.getElementById('caption');
@@ -1201,6 +1269,13 @@ window.MathJax = {
           ' · ' + T('logic') + ' ' + (LOGICS[m.rel] || '');
       cap.appendChild(ri);
     }
+    var va = viewApplied(m);
+    [['refl', 'impliedRefl'], ['trans', 'impliedTrans']].forEach(function (x) {
+      if (!va[x[0]]) return;
+      var im = document.createElement('span'); im.className = 'implied'; im.textContent = T(x[1]);
+      cap.appendChild(im);
+    });
+    renderViewButtons();
 
     var ul = document.getElementById('sets');
     ul.innerHTML = '';
@@ -1541,6 +1616,16 @@ window.MathJax = {
       try { localStorage.setItem('kripke-rel', relSel); } catch (e) { /* хранилище недоступно */ }
       applyStatic();
       load(state.seed);
+    });
+  });
+
+  [['hide-refl', 'hideRefl'], ['hide-trans', 'hideTrans']].forEach(function (x) {
+    try { view[x[1]] = localStorage.getItem('kripke-' + x[1]) === '1'; } catch (e) { /* хранилище недоступно */ }
+    document.getElementById(x[0]).addEventListener('click', function () {
+      view[x[1]] = !view[x[1]];
+      try { localStorage.setItem('kripke-' + x[1], view[x[1]] ? '1' : '0'); } catch (e) { /* хранилище недоступно */ }
+      drawModel();
+      renderModelText();
     });
   });
 
