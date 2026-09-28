@@ -918,7 +918,9 @@ window.MathJax = {
     ['(', '('], [')', ')'], ['⊥', 'bot'], ['0', 'bot'], ['⊤', 'top'], ['1', 'top'],
     ['p', 'p'], ['q', 'q'], ['r', 'r'], ['s', 's']
   ].sort(function (a, b) { return b[0].length - a[0].length; });
-  var MAX_INPUT_TOKENS = 80;
+  // ограничиваем размер формулы, а не длину записи: показанная запись со всеми скобками
+  // должна вводиться обратно без ошибки
+  var MAX_INPUT_TOKENS = 400, MAX_INPUT_SIZE = 45;
 
   // возвращает { f } или { err: код, ch, pos }
   function parseFormula(str) {
@@ -970,6 +972,7 @@ window.MathJax = {
     try {
       var f = iff();
       if (k < toks.length) fail(toks[k].k === ')' ? 'extra' : 'tok');
+      if (size(f) > MAX_INPUT_SIZE) return { err: 'long' };
       return { f: f };
     } catch (e) {
       if (e && e.err) return e;
