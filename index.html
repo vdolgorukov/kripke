@@ -163,6 +163,27 @@ tr.bd[hidden]{display:none}
 .bd-list{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
 
 .actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.25rem}
+.custom{margin-top:1rem;padding:1rem;border:1px solid var(--rule);border-radius:8px;background:var(--tint)}
+.custom[hidden]{display:none}
+.custom label{display:block;color:var(--muted);margin-bottom:.35rem}
+.custom-row{display:flex;flex-wrap:wrap;gap:.5rem}
+.custom-row input{
+  flex:1 1 14rem;min-width:0;font:inherit;font-size:1.1rem;padding:.4rem .6rem;border:1.5px solid var(--rule-strong);border-radius:6px;
+  background:var(--paper);color:var(--text);
+}
+.custom-row input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.palette{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.6rem}
+.palette button{font:inherit;font-size:1.05rem;min-width:40px;min-height:40px;padding:0 .5rem;border:1.5px solid var(--rule-strong);border-radius:6px;background:var(--paper);color:var(--text);cursor:pointer}
+.palette button:hover{border-color:var(--accent);color:var(--accent)}
+.palette button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.palette .atom{font-style:italic}
+.preview{margin:.6rem 0 0;min-height:1.6em}
+.preview .err{color:var(--err)}
+.hint{margin:.5rem 0 0;color:var(--muted);font-size:.88rem}
+.rm{font:inherit;font-size:1.1rem;line-height:1;width:32px;height:32px;margin-left:auto;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;flex-shrink:0}
+.rm:hover{color:var(--err);background:var(--tint)}
+.rm:focus-visible{outline:2px solid var(--accent)}
+.mine{color:var(--muted);font-size:.8rem;font-style:italic;white-space:nowrap}
 #summary{margin:1rem 0 0;font-size:1.05rem;min-height:1.6em}
 #summary .ok{color:var(--ok)}
 .legend{display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;margin-top:.9rem;color:var(--muted);font-size:.9rem}
@@ -281,7 +302,19 @@ window.MathJax = {
       <div class="actions">
         <button class="btn primary" id="check" type="button" data-i18n="checkAll"></button>
         <button class="btn" id="reset" type="button" data-i18n="reset"></button>
+        <button class="btn" id="custom-open" type="button" aria-controls="custom" aria-expanded="false" data-i18n="customOpen"></button>
       </div>
+      <form class="custom" id="custom" hidden novalidate>
+        <label for="custom-input" data-i18n="customLabel"></label>
+        <div class="custom-row">
+          <input id="custom-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="custom-preview custom-hint">
+          <button class="btn primary" type="submit" data-i18n="customAdd"></button>
+          <button class="btn" type="button" id="custom-cancel" data-i18n="cancel"></button>
+        </div>
+        <div class="palette" id="palette"></div>
+        <p class="preview" id="custom-preview" aria-live="polite"></p>
+        <p class="hint" id="custom-hint" data-i18n="customHint"></p>
+      </form>
       <p id="summary" aria-live="polite"></p>
       <div class="legend" id="legend" hidden>
         <span class="lg"><span class="sw sw-hit"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="lgHit"></span></span>
@@ -874,9 +907,79 @@ window.MathJax = {
     return list;
   }
 
+  // ----- разбор формулы, введённой пользователем -----
+  // приоритет: ¬ □ ◇, затем ∧, ∨, → (вправо), ↔; поддерживается ASCII-запись
+  var INPUT_TOKENS = [
+    ['<->', 'iff'], ['<=>', 'iff'], ['↔', 'iff'], ['->', 'imp'], ['=>', 'imp'], ['→', 'imp'],
+    ['[]', 'box'], ['□', 'box'], ['<>', 'dia'], ['◇', 'dia'], ['◊', 'dia'],
+    ['~', 'not'], ['!', 'not'], ['¬', 'not'], ['-', 'not'],
+    ['/\\', 'and'], ['&', 'and'], ['∧', 'and'], ['^', 'and'],
+    ['_|_', 'bot'], ['\\/', 'or'], ['|', 'or'], ['∨', 'or'], ['v', 'or'], ['V', 'or'],
+    ['(', '('], [')', ')'], ['⊥', 'bot'], ['0', 'bot'], ['⊤', 'top'], ['1', 'top'],
+    ['p', 'p'], ['q', 'q'], ['r', 'r'], ['s', 's']
+  ].sort(function (a, b) { return b[0].length - a[0].length; });
+  var MAX_INPUT_TOKENS = 80;
+
+  // возвращает { f } или { err: код, ch, pos }
+  function parseFormula(str) {
+    var toks = [], i = 0, j;
+    while (i < str.length) {
+      if (/\s/.test(str[i])) { i++; continue; }
+      for (j = 0; j < INPUT_TOKENS.length; j++) if (str.substr(i, INPUT_TOKENS[j][0].length) === INPUT_TOKENS[j][0]) break;
+      if (j === INPUT_TOKENS.length) return { err: 'char', ch: str[i], pos: i + 1 };
+      toks.push({ k: INPUT_TOKENS[j][1], pos: i + 1, s: INPUT_TOKENS[j][0] });
+      i += INPUT_TOKENS[j][0].length;
+    }
+    if (!toks.length) return { err: 'empty' };
+    if (toks.length > MAX_INPUT_TOKENS) return { err: 'long' };
+    var k = 0;
+    function fail(code) {
+      var t = toks[k];
+      throw t ? { err: code || 'tok', ch: t.s, pos: t.pos } : { err: 'end' };
+    }
+    function unary() {
+      var t = toks[k];
+      if (!t) fail();
+      if (t.k === 'not' || t.k === 'box' || t.k === 'dia') { k++; return mk(t.k, unary()); }
+      if (t.k === '(') {
+        k++;
+        var e = iff();
+        if (!toks[k]) throw { err: 'paren' };
+        if (toks[k].k !== ')') fail();
+        k++;
+        return e;
+      }
+      if (AT[t.k]) { k++; return AT[t.k]; }
+      if (t.k === 'bot') { k++; return BOT; }
+      if (t.k === 'top') { k++; return TOP; }
+      fail();
+    }
+    function chain(next, op) {
+      var e = next();
+      while (toks[k] && toks[k].k === op) { k++; e = mk(op, e, next()); }
+      return e;
+    }
+    function conj() { return chain(unary, 'and'); }
+    function disj() { return chain(conj, 'or'); }
+    function imp() {
+      var e = disj();
+      if (toks[k] && toks[k].k === 'imp') { k++; return mk('imp', e, imp()); }
+      return e;
+    }
+    function iff() { return chain(imp, 'iff'); }
+    try {
+      var f = iff();
+      if (k < toks.length) fail(toks[k].k === ')' ? 'extra' : 'tok');
+      return { f: f };
+    } catch (e) {
+      if (e && e.err) return e;
+      throw e;
+    }
+  }
+
   var API = {
     mulberry32: mulberry32, genModel: genModel, genLayout: genLayout, genFormulas: genFormulas,
-    evalF: evalF, hasConst: hasConst, atomsOf: atomsOf, displaySucc: displaySucc, relNormalize: relNormalize, relKey: relKey, relHolds: relHolds, LOGICS: LOGICS, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
+    evalF: evalF, parseFormula: parseFormula, atomsIn: atomsIn, hasConst: hasConst, atomsOf: atomsOf, displaySucc: displaySucc, relNormalize: relNormalize, relKey: relKey, relHolds: relHolds, LOGICS: LOGICS, modalDepth: modalDepth, toTex: toTex, toTxt: toTxt, subformulas: subformulas, key: key, size: size,
     LAYOUTS: LAYOUTS, LEVELS: LEVELS, PICTURE_MODEL: PICTURE_MODEL
   };
   if (typeof document === 'undefined') {
@@ -895,6 +998,18 @@ window.MathJax = {
       relLabel: 'Accessibility is', rel_u: 'universal (S5)', rel_r: 'reflexive', rel_s: 'symmetric',
       rel_t: 'transitive', rel_e: 'euclidean', rel_d: 'serial',
       relImplied: 'follows from the selected properties', logic: 'Logic', relAll: 'R = W \u00d7 W',
+      customOpen: 'Enter your own formula', customLabel: 'Your formula', customAdd: 'Add', cancel: 'Cancel',
+      customHint: 'Use the buttons or type: ~ for \u00ac, & for \u2227, | or v for \u2228, -> for \u2192, <-> for \u2194, [] for \u25a1, <> for \u25c7, 0 for \u22a5, 1 for \u22a4. Without parentheses, \u2227 binds tighter than \u2228, then \u2192, then \u2194.',
+      customWill: 'Will be added: ', customAdded: function (i) { return 'Added as formula (' + i + ').'; },
+      errEmpty: 'Type a formula.', errLong: 'The formula is too long.',
+      errChar: function (c, p) { return 'Unexpected symbol \u201c' + c + '\u201d (position ' + p + ').'; },
+      errTok: function (c, p) { return 'Something is missing before \u201c' + c + '\u201d (position ' + p + ').'; },
+      errExtra: function (c, p) { return 'Extra \u201c)\u201d (position ' + p + ').'; },
+      errEnd: 'The formula ends too early.', errParen: 'A closing parenthesis is missing.',
+      errAtom: function (a, list) { return 'Variable ' + a + ' is not in this model (it has ' + list + ').'; },
+      errDup: 'This formula is already in the table.',
+      mine: 'your formula', removeAria: function (i) { return 'Remove formula ' + i; },
+      dropped: function (t) { return 'Your formula ' + t + ' was removed: the new model does not have its variables.'; },
       hideRefl: 'Hide reflexive arrows', hideTrans: 'Hide transitive arrows',
       impliedRefl: 'Reflexive arrows are implied', impliedTrans: 'Transitive arrows are implied',
       needRefl: 'Available when the relation is reflexive', needTrans: 'Available when the relation is transitive',
@@ -927,6 +1042,18 @@ window.MathJax = {
       relLabel: 'Отношение достижимости', rel_u: 'универсальное (S5)', rel_r: 'рефлексивное', rel_s: 'симметричное',
       rel_t: 'транзитивное', rel_e: 'евклидово', rel_d: 'сериальное',
       relImplied: 'следует из выбранных свойств', logic: 'Логика', relAll: 'R = W × W',
+      customOpen: 'Ввести свою формулу', customLabel: 'Своя формула', customAdd: 'Добавить', cancel: 'Отмена',
+      customHint: 'Нажимайте кнопки или печатайте: ~ для ¬, & для ∧, | или v для ∨, -> для →, <-> для ↔, [] для □, <> для ◇, 0 для ⊥, 1 для ⊤. Без скобок ∧ связывает сильнее ∨, затем →, затем ↔.',
+      customWill: 'Будет добавлено: ', customAdded: function (i) { return 'Добавлено как формула (' + i + ').'; },
+      errEmpty: 'Введите формулу.', errLong: 'Слишком длинная формула.',
+      errChar: function (c, p) { return 'Непонятный символ «' + c + '» (позиция ' + p + ').'; },
+      errTok: function (c, p) { return 'Перед «' + c + '» чего-то не хватает (позиция ' + p + ').'; },
+      errExtra: function (c, p) { return 'Лишняя «)» (позиция ' + p + ').'; },
+      errEnd: 'Формула обрывается.', errParen: 'Не хватает закрывающей скобки.',
+      errAtom: function (a, list) { return 'Переменной ' + a + ' нет в этой модели (есть ' + list + ').'; },
+      errDup: 'Эта формула уже есть в таблице.',
+      mine: 'своя формула', removeAria: function (i) { return 'Удалить формулу ' + i; },
+      dropped: function (t) { return 'Своя формула ' + t + ' удалена: в новой модели нет её переменных.'; },
       hideRefl: 'Не отображать рефлексивные стрелки', hideTrans: 'Не отображать транзитивные стрелки',
       impliedRefl: 'Рефлексивные стрелки подразумеваются', impliedTrans: 'Транзитивные стрелки подразумеваются',
       needRefl: 'Доступно, если отношение рефлексивно', needTrans: 'Доступно, если отношение транзитивно',
@@ -1036,7 +1163,9 @@ window.MathJax = {
   var SVGNS = 'http://www.w3.org/2000/svg';
   var mathOn = !!window.__mjReady;
 
-  var state = { seed: 0, model: null, layout: null, formulas: [], truth: [], marks: [], checked: [], open: [] };
+  var state = { seed: 0, model: null, layout: null, formulas: [], truth: [], marks: [], checked: [], open: [], nGen: 0 };
+  // свои формулы пользователя: остаются при смене задания и пересчитываются на новой модели
+  var custom = [];
 
   function svgEl(tag, attrs) {
     var e = document.createElementNS(SVGNS, tag);
@@ -1400,6 +1529,13 @@ window.MathJax = {
       var fs = document.createElement('span'); fs.className = 'formula';
       fs.appendChild(mathSpan(toTex(f, false), italicLetters(toTxt(f, false)), toTxt(f, false)));
       head.appendChild(num); head.appendChild(fs);
+      if (fi >= state.nGen) {
+        var mine = document.createElement('span'); mine.className = 'mine'; mine.textContent = T('mine');
+        var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×';
+        rm.setAttribute('aria-label', T('removeAria', fi + 1)); rm.title = T('removeAria', fi + 1);
+        rm.addEventListener('click', function () { removeFormula(fi); });
+        head.appendChild(mine); head.appendChild(rm);
+      }
       td.appendChild(head);
 
       var st = document.createElement('div'); st.className = 'rowstatus';
@@ -1581,6 +1717,14 @@ window.MathJax = {
     state.model = genModel(rng, level, relEffectiveKey());
     state.layout = genLayout(state.model.n, rng);
     state.formulas = genFormulas(state.model, rng, level, consts);
+    state.nGen = state.formulas.length;
+    var names = atomsOf(state.model), dropped = [];
+    custom = custom.filter(function (f) {
+      var fits = Object.keys(atomsIn(f, {})).every(function (a) { return names.indexOf(a) >= 0; });
+      if (!fits) dropped.push(toTxt(f, false));
+      return fits;
+    });
+    state.formulas = state.formulas.concat(custom);
     state.truth = state.formulas.map(function (f) { return evalF(f, state.model); });
     state.marks = state.formulas.map(function () { var a = []; for (var i = 0; i <= state.model.n; i++) a.push(false); return a; });
     state.open = state.formulas.map(function () { return false; });
@@ -1588,7 +1732,110 @@ window.MathJax = {
     document.getElementById('variant-msg').textContent = '';
     persist(seed);
     renderAll();
+    renderPalette();
+    var pv = document.getElementById('custom-preview');
+    pv.textContent = dropped.length ? dropped.map(function (t) { return T('dropped', t); }).join(' ') : '';
+    if (!dropped.length) updatePreview();
   }
+
+  // ----- свои формулы -----
+  function addFormula(f) {
+    custom.push(f);
+    state.formulas.push(f);
+    state.truth.push(evalF(f, state.model));
+    var row = []; for (var i = 0; i <= state.model.n; i++) row.push(false);
+    state.marks.push(row);
+    state.open.push(false);
+    state.checked.push(false);
+    renderTable();
+    renderResults();
+  }
+  function removeFormula(fi) {
+    custom.splice(fi - state.nGen, 1);
+    ['formulas', 'truth', 'marks', 'open', 'checked'].forEach(function (k) { state[k].splice(fi, 1); });
+    renderTable();
+    renderResults();
+    var next = document.querySelectorAll('#grid .rm')[fi - state.nGen] || document.getElementById('custom-open');
+    next.focus();
+  }
+  // проверка введённого текста: { f } или { msg }
+  function readInput() {
+    var raw = document.getElementById('custom-input').value, r = parseFormula(raw);
+    if (r.err) {
+      var msg = { empty: T('errEmpty'), long: T('errLong'), end: T('errEnd'), paren: T('errParen') }[r.err];
+      if (!msg) msg = r.err === 'char' ? T('errChar', r.ch, r.pos) : r.err === 'extra' ? T('errExtra', r.ch, r.pos) : T('errTok', r.ch, r.pos);
+      return { msg: msg, empty: r.err === 'empty' };
+    }
+    var names = atomsOf(state.model);
+    var bad = Object.keys(atomsIn(r.f, {})).filter(function (a) { return names.indexOf(a) < 0; });
+    if (bad.length) return { msg: T('errAtom', bad[0], names.join(', ')) };
+    var kf = key(r.f);
+    if (state.formulas.some(function (g) { return key(g) === kf; })) return { msg: T('errDup'), f: r.f };
+    return { f: r.f };
+  }
+  function updatePreview() {
+    var pv = document.getElementById('custom-preview');
+    if (document.getElementById('custom').hidden) return;
+    pv.innerHTML = '';
+    var r = readInput();
+    if (r.empty) return;
+    if (r.msg) {
+      var e = document.createElement('span'); e.className = 'err'; e.textContent = r.msg;
+      pv.appendChild(e);
+      return;
+    }
+    pv.appendChild(document.createTextNode(T('customWill')));
+    pv.appendChild(mathSpan(toTex(r.f, false), italicLetters(toTxt(r.f, false)), toTxt(r.f, false)));
+  }
+  function renderPalette() {
+    var pal = document.getElementById('palette');
+    pal.innerHTML = '';
+    var syms = ['¬', '∧', '∨', '→', '↔', '□', '◇', '⊥', '⊤', '(', ')'].concat(atomsOf(state.model));
+    syms.forEach(function (c) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = c;
+      if (/^[pqrs]$/.test(c)) b.className = 'atom';
+      b.addEventListener('click', function () {
+        var inp = document.getElementById('custom-input');
+        var a = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
+        var z = inp.selectionEnd == null ? a : inp.selectionEnd;
+        inp.value = inp.value.slice(0, a) + c + inp.value.slice(z);
+        inp.focus();
+        inp.setSelectionRange(a + c.length, a + c.length);
+        updatePreview();
+      });
+      pal.appendChild(b);
+    });
+  }
+  function setCustomOpen(open) {
+    var form = document.getElementById('custom'), btn = document.getElementById('custom-open');
+    form.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { renderPalette(); updatePreview(); document.getElementById('custom-input').focus(); }
+    else btn.focus();
+  }
+  document.getElementById('custom-open').addEventListener('click', function () {
+    setCustomOpen(document.getElementById('custom').hidden);
+  });
+  document.getElementById('custom-cancel').addEventListener('click', function () { setCustomOpen(false); });
+  document.getElementById('custom-input').addEventListener('input', updatePreview);
+  document.getElementById('custom-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') setCustomOpen(false);
+  });
+  document.getElementById('custom').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var r = readInput(), pv = document.getElementById('custom-preview');
+    if (!r.f || r.msg) {
+      pv.innerHTML = '';
+      var er = document.createElement('span'); er.className = 'err'; er.textContent = r.msg;
+      pv.appendChild(er);
+      return;
+    }
+    addFormula(r.f);
+    var inp = document.getElementById('custom-input');
+    inp.value = '';
+    pv.textContent = T('customAdded', state.formulas.length);
+    inp.focus();
+  });
 
   document.getElementById('check').addEventListener('click', function () {
     state.checked = state.checked.map(function () { return true; });
@@ -1629,6 +1876,7 @@ window.MathJax = {
     applyStatic();
     persist(state.seed);
     renderAll();
+    updatePreview();
   }
   Array.prototype.forEach.call(document.querySelectorAll('.lang button'), function (b) {
     b.addEventListener('click', function () { setLang(b.getAttribute('data-lang')); });
