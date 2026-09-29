@@ -21,6 +21,8 @@
   --ok:#2c7a4b;
   --err:#b53a2f;
   --tint:#f3f5fa;
+  --node-hl:#a9b4dc;
+  --sel:#232d63;
   color-scheme:light;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -30,13 +32,13 @@
   :root:not([data-theme="light"]){
     --paper:#16181d; --text:#e4e6ec; --muted:#9aa0b1; --stroke:#e8eaf0; --node:#2f3651;
     --rule:#2d313c; --rule-strong:#565c6e; --accent:#a4b3f2; --on-accent:#141826;
-    --ok:#66c48b; --err:#f08172; --tint:#1e2129; color-scheme:dark;
+    --ok:#66c48b; --err:#f08172; --tint:#1e2129; --node-hl:#5b6cb4; --sel:#c9d2fa; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --paper:#16181d; --text:#e4e6ec; --muted:#9aa0b1; --stroke:#e8eaf0; --node:#2f3651;
   --rule:#2d313c; --rule-strong:#565c6e; --accent:#a4b3f2; --on-accent:#141826;
-  --ok:#66c48b; --err:#f08172; --tint:#1e2129; color-scheme:dark;
+  --ok:#66c48b; --err:#f08172; --tint:#1e2129; --node-hl:#5b6cb4; --sel:#c9d2fa; color-scheme:dark;
 }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
@@ -108,6 +110,17 @@ figure{margin:0}
 #kripke .ah{fill:var(--stroke)}
 #kripke .world{fill:var(--node);stroke:var(--stroke);stroke-width:1.4}
 #kripke .lbl-text{font-family:"PT Serif",Georgia,serif;font-style:italic;fill:var(--stroke)}
+/* имя мира — кнопка: выделяет мир и подсвечивает достижимые из него миры */
+#kripke .wname{cursor:pointer;outline:none}
+#kripke .wname .hit{fill:transparent;stroke:none}
+#kripke .wname:hover .hit{fill:var(--tint)}
+#kripke .wname:focus-visible .hit{stroke:var(--accent);stroke-width:2}
+#kripke .wname.sel .hit{fill:var(--sel)}
+#kripke .wname.sel{color:var(--on-accent)}
+#kripke .wname.sel .lbl-text{fill:var(--on-accent)}
+#kripke .world.reach{fill:var(--node-hl)}
+.reach-note{text-align:center;font-size:.95rem;margin:.35rem 0 0;min-height:1.6em}
+.reach-note.hint-on{color:var(--muted);font-size:.88rem}
 figcaption{text-align:center;color:var(--muted);font-size:.95rem;margin-top:.6rem}
 
 details{margin-top:1.25rem;border-top:1px solid var(--rule);padding-top:.75rem}
@@ -279,7 +292,8 @@ window.MathJax = {
   <div class="workspace">
     <section data-i18n-aria="secModel">
       <figure>
-        <svg id="kripke" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
+        <svg id="kripke" xmlns="http://www.w3.org/2000/svg" role="group"></svg>
+        <p class="reach-note" id="reach-note" aria-live="polite"></p>
         <figcaption id="caption"></figcaption>
       </figure>
       <div class="viewopts">
@@ -1001,6 +1015,9 @@ window.MathJax = {
       relLabel: 'Accessibility is', rel_u: 'universal (S5)', rel_r: 'reflexive', rel_s: 'symmetric',
       rel_t: 'transitive', rel_e: 'euclidean', rel_d: 'serial',
       relImplied: 'follows from the selected properties', logic: 'Logic', relAll: 'R = W \u00d7 W',
+      wnameAria: function (w) { return w + ': show the worlds accessible from it'; },
+      reachHint: 'Click a world’s name to see the worlds accessible from it.',
+      reachFrom: 'Accessible from ',reachSome: ': ', reachNone: ': no worlds',
       customOpen: 'Enter your own formula', customLabel: 'Your formula', customAdd: 'Add', cancel: 'Cancel',
       customHint: 'Use the buttons or type: ~ for \u00ac, & for \u2227, | or v for \u2228, -> for \u2192, <-> for \u2194, [] for \u25a1, <> for \u25c7, 0 for \u22a5, 1 for \u22a4. Without parentheses, \u2227 binds tighter than \u2228, then \u2192, then \u2194.',
       customWill: 'Will be added: ', customAdded: function (i) { return 'Added as formula (' + i + ').'; },
@@ -1045,6 +1062,9 @@ window.MathJax = {
       relLabel: 'Отношение достижимости', rel_u: 'универсальное (S5)', rel_r: 'рефлексивное', rel_s: 'симметричное',
       rel_t: 'транзитивное', rel_e: 'евклидово', rel_d: 'сериальное',
       relImplied: 'следует из выбранных свойств', logic: 'Логика', relAll: 'R = W × W',
+      wnameAria: function (w) { return w + ': показать миры, достижимые из него'; },
+      reachHint: 'Нажмите на имя мира, чтобы увидеть миры, достижимые из него.',
+      reachFrom: 'Из ',reachSome: ' достижимы: ', reachNone: ' не достижим ни один мир',
       customOpen: 'Ввести свою формулу', customLabel: 'Своя формула', customAdd: 'Добавить', cancel: 'Отмена',
       customHint: 'Нажимайте кнопки или печатайте: ~ для ¬, & для ∧, | или v для ∨, -> для →, <-> для ↔, [] для □, <> для ◇, 0 для ⊥, 1 для ⊤. Без скобок ∧ связывает сильнее ∨, затем →, затем ↔.',
       customWill: 'Будет добавлено: ', customAdded: function (i) { return 'Добавлено как формула (' + i + ').'; },
@@ -1364,7 +1384,7 @@ window.MathJax = {
 
     // миры и их оценки
     for (i = 0; i < n; i++) {
-      gN.appendChild(svgEl('circle', { cx: pos[i].x, cy: pos[i].y, r: R, 'class': 'world' }));
+      gN.appendChild(svgEl('circle', { cx: pos[i].x, cy: pos[i].y, r: R, 'class': 'world', 'data-w': i }));
       ext.push({ x: pos[i].x - R, y: pos[i].y - R }, { x: pos[i].x + R, y: pos[i].y + R });
       var atoms = atomsOf(m).filter(function (a) { return m.val[i][a]; });
       if (atoms.length > 2) {
@@ -1397,7 +1417,10 @@ window.MathJax = {
       var bx = pos[i].x + dir.x * (R + gap) + sx * wl.w / 2;
       var by = pos[i].y + dir.y * (R + gap) + sy * wl.h / 2;
       wl.place(bx, by);
-      gL.appendChild(wl.el);
+      var wg = svgEl('g', { 'class': 'wname', 'data-w': i, role: 'button', tabindex: 0 });
+      wg.appendChild(svgEl('rect', { 'class': 'hit', x: fx(bx - wl.w / 2 - 6), y: fx(by - wl.h / 2 - 5), width: fx(wl.w + 12), height: fx(wl.h + 10), rx: 7 }));
+      wg.appendChild(wl.el);
+      gL.appendChild(wg);
       ext.push({ x: bx - wl.w / 2, y: by - wl.h / 2 }, { x: bx + wl.w / 2, y: by + wl.h / 2 });
     }
 
@@ -1415,7 +1438,54 @@ window.MathJax = {
       parts.push(worldTxt(i) + ': ' + (at.length ? T('ariaTrue') + at.join(', ') : T('ariaAtomsFalse')) + T('ariaSucc') + (sc3.length ? sc3.join(', ') : T('ariaNone')));
     }
     svg.setAttribute('aria-label', T('ariaModel') + parts.join('. ') + '.');
+    applyReach();
   }
+
+  // ----- выделение мира и подсветка достижимых -----
+  // hlWorld: выбранный мир (-1 — ничего); достижимость берётся из R, а не из рисунка,
+  // поэтому скрытые петли и транзитивные стрелки тоже учитываются
+  var hlWorld = -1;
+  function applyReach() {
+    var m = state.model, svg = document.getElementById('kripke');
+    var succ = hlWorld >= 0 ? m.succ[hlWorld] : 0;
+    Array.prototype.forEach.call(svg.querySelectorAll('.wname'), function (g) {
+      var w = +g.getAttribute('data-w');
+      g.classList.toggle('sel', w === hlWorld);
+      g.setAttribute('aria-pressed', w === hlWorld ? 'true' : 'false');
+      g.setAttribute('aria-label', T('wnameAria', worldTxt(w)));
+    });
+    Array.prototype.forEach.call(svg.querySelectorAll('.world'), function (c) {
+      c.classList.toggle('reach', !!(succ >> +c.getAttribute('data-w') & 1));
+    });
+    var note = document.getElementById('reach-note');
+    note.innerHTML = '';
+    note.classList.toggle('hint-on', hlWorld < 0);
+    if (hlWorld < 0) { note.textContent = T('reachHint'); return; }
+    var list = bitsOf(succ, m.n);
+    var tex = list.length ? list.map(worldTex).join(', ') : '';
+    var html = list.map(worldHtml).join(', '), txt = list.map(worldTxt).join(', ');
+    note.appendChild(document.createTextNode(T('reachFrom')));
+    note.appendChild(mathSpan(worldTex(hlWorld), worldHtml(hlWorld), worldTxt(hlWorld)));
+    note.appendChild(document.createTextNode(list.length ? T('reachSome') : T('reachNone')));
+    if (list.length) note.appendChild(mathSpan(tex, html, txt));
+  }
+  function toggleWorld(w) {
+    hlWorld = hlWorld === w ? -1 : w;
+    applyReach();
+  }
+  (function () {
+    var svg = document.getElementById('kripke');
+    svg.addEventListener('click', function (e) {
+      var g = e.target.closest ? e.target.closest('.wname') : null;
+      if (g) toggleWorld(+g.getAttribute('data-w'));
+      else if (hlWorld >= 0) { hlWorld = -1; applyReach(); }
+    });
+    svg.addEventListener('keydown', function (e) {
+      var g = e.target.closest ? e.target.closest('.wname') : null;
+      if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleWorld(+g.getAttribute('data-w')); }
+      else if (e.key === 'Escape' && hlWorld >= 0) { hlWorld = -1; applyReach(); }
+    });
+  })();
 
   function renderViewButtons() {
     var m = state.model;
@@ -1721,6 +1791,7 @@ window.MathJax = {
     state.layout = genLayout(state.model.n, rng);
     state.formulas = genFormulas(state.model, rng, level, consts);
     state.nGen = state.formulas.length;
+    hlWorld = -1;
     var names = atomsOf(state.model), dropped = [];
     custom = custom.filter(function (f) {
       var fits = Object.keys(atomsIn(f, {})).every(function (a) { return names.indexOf(a) >= 0; });
